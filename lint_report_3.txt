@@ -1,0 +1,53 @@
+﻿
+> trading-journal@0.0.0 lint
+> eslint .
+
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\analytics\ContributionGraph.tsx
+  22:8  warning  React Hook useMemo has missing dependencies: 'startDate' and 'today'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\context\AccountContext.tsx
+  15:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\context\ColorModeContext.tsx
+  16:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Calendar.tsx
+  29:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx
+   86:47  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  162:47  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx:162:47
+  160 |                     reader.onload = (event) => {
+  161 |                         const base64 = event.target?.result as string;
+> 162 |                         const currentImages = watch('screenshots') || [];
+      |                                               ^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  163 |                         setValue('screenshots', [...currentImages, base64]);
+  164 |                     };
+  165 |                     reader.readAsDataURL(blob);  react-hooks/incompatible-library
+  232:22  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\test\heatmap.test.ts
+  6:59  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\utils\generateTestTrades.ts
+   88:77  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   92:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\utils\generateTrades.ts
+  34:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\utils\importExport.ts
+   45:49  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  246:53  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  281:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  307:56  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 17 problems (15 errors, 2 warnings)
+
