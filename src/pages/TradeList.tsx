@@ -340,9 +340,9 @@ export function TradeList() {
 
     return (
         <Box sx={{ height: 'calc(100vh - 120px)', width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
                 <Typography variant="h4" fontWeight="bold">Trade Log</Typography>
-                <Stack direction="row" spacing={2}>
+                <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', width: { xs: '100%', md: 'auto' }, pb: { xs: 1, md: 0 } }}>
                     <Tooltip title="Clear & Seed 5 Test Trades">
                         <Button
                             variant="outlined"

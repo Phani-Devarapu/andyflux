@@ -217,10 +217,11 @@ export function Dashboard() {
     return (
         <Box sx={{ flexGrow: 1 }}>
             {/* Premium Header */}
-            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
                 <Box>
                     <Typography variant="h4" sx={{
                         fontWeight: 800,
+                        fontSize: { xs: '1.75rem', md: '2.125rem' },
                         background: theme.palette.mode === 'dark'
                             ? 'linear-gradient(45deg, #60A5FA 30%, #A78BFA 90%)'
                             : 'linear-gradient(45deg, #2563EB 30%, #7C3AED 90%)',
@@ -231,7 +232,7 @@ export function Dashboard() {
                     }}>
                         {greeting}, {user?.displayName ? user.displayName.split(' ')[0] : 'Trader'}
                     </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                    <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500, fontSize: { xs: '0.875rem', md: '1rem' } }}>
                         Here is your portfolio performance for today.
                     </Typography>
                 </Box>
@@ -241,6 +242,7 @@ export function Dashboard() {
                     variant="contained"
                     startIcon={<PlusCircle size={20} />}
                     sx={{
+                        width: { xs: '100%', md: 'auto' },
                         px: 3,
                         py: 1,
                         borderRadius: '100px',
@@ -272,9 +274,11 @@ export function Dashboard() {
             {/* Charts */}
             <Grid container spacing={3}>
                 <Grid size={{ xs: 12, lg: 8 }}>
-                    <Card variant="outlined" sx={{ height: 400 }}>
+                    <Card variant="outlined" sx={{ height: { xs: 300, md: 400 } }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom>Equity Curve (Daily Growth)</Typography>
+                            <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                                Equity Curve (Daily Growth)
+                            </Typography>
                             <Box sx={{ flexGrow: 1, position: 'relative' }}>
                                 {trades && trades.length > 0 ? (
                                     <EquityChart trades={trades} unrealizedPnL={unrealizedPnL} />
@@ -288,9 +292,11 @@ export function Dashboard() {
                     </Card>
                 </Grid>
                 <Grid size={{ xs: 12, lg: 4 }}>
-                    <Card variant="outlined" sx={{ height: 400 }}>
+                    <Card variant="outlined" sx={{ height: { xs: 300, md: 400 } }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom>Win/Loss Ratio</Typography>
+                            <Typography variant="h6" fontWeight="bold" gutterBottom sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                                Win/Loss Ratio
+                            </Typography>
                             <Box sx={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center' }}>
                                 {totalTrades > 0 ? (
                                     <Doughnut

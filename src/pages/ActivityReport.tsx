@@ -438,10 +438,10 @@ export function ActivityReport() {
         <Box sx={{ p: 0, height: '100%', display: 'flex', flexDirection: 'column', gap: 3 }}>
 
             {/* Header & Controls */}
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'flex-start', md: 'center' }, justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
                 <Typography variant="h4" fontWeight="bold">Activity Report</Typography>
 
-                <Stack direction="row" spacing={2} alignItems="center">
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ overflowX: 'auto', maxWidth: '100%', pb: 1 }}>
                     <Select
                         size="small"
                         value={year}

@@ -8,6 +8,7 @@ import {
     AppBar,
     Toolbar,
     IconButton,
+    alpha
 } from '@mui/material';
 
 const DRAWER_WIDTH = 280;
@@ -28,9 +29,12 @@ export function AppLayout() {
                     width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
                     ml: { md: `${DRAWER_WIDTH}px` },
                     display: { md: 'none' },
-                    bgcolor: 'background.paper',
+                    bgcolor: (theme) => alpha(theme.palette.background.default, 0.7),
+                    backdropFilter: 'blur(20px)',
                     backgroundImage: 'none',
-                    boxShadow: 1
+                    borderBottom: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: 'none'
                 }}
             >
                 <Toolbar>
