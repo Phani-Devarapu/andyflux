@@ -2,9 +2,9 @@ import { db } from '../db/db';
 import type { Trade, TradeSide } from '../types/trade';
 import { calculatePnL, calculatePnLPercent, calculateRiskReward } from './calculations';
 
-export const generateTestTrades = async (accountId: 'trading' | 'investing' = 'trading') => {
-    // Clear existing trades for this account only
-    await db.trades.where('accountId').equals(accountId).delete();
+export const generateTestTrades = async (userId: string, accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED' = 'TFSA') => {
+    // Clear existing trades for this user and account
+    await db.trades.where('[userId+accountId]').equals([userId, accountId]).delete();
 
     const today = new Date();
     const trades = [
@@ -99,7 +99,8 @@ export const generateTestTrades = async (accountId: 'trading' | 'investing' = 't
 
         return {
             ...t,
-            accountId, // Add accountId to each trade
+            userId, // Add userId
+            accountId,
             pnl,
             pnlPercentage,
             riskRewardRatio,

@@ -9,9 +9,13 @@ import { Analytics } from './pages/Analytics';
 import { Calendar } from './pages/Calendar';
 import { TickerAnalytics } from './pages/TickerAnalytics';
 import { StrategyAnalytics } from './pages/StrategyAnalytics';
+import { ActivityReport } from './pages/ActivityReport';
 import { ColorModeProvider, useColorMode } from './context/ColorModeContext';
 import { AccountProvider } from './context/AccountContext';
 import { getTheme } from './theme';
+
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { WelcomePage } from './pages/WelcomePage';
 
 function AppContent() {
   const { mode } = useColorMode();
@@ -21,7 +25,13 @@ function AppContent() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Routes>
-        <Route element={<AppLayout />}>
+        <Route path="/welcome" element={<WelcomePage />} />
+
+        <Route element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }>
           <Route path="/" element={<Dashboard />} />
           <Route path="/trades" element={<TradeList />} />
           <Route path="/add" element={<TradeForm />} />
@@ -30,7 +40,9 @@ function AppContent() {
           <Route path="/ticker-analytics" element={<TickerAnalytics />} />
           <Route path="/strategy-analytics" element={<StrategyAnalytics />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/activity-reports" element={<ActivityReport />} />
         </Route>
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ThemeProvider>

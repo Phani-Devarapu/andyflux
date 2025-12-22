@@ -1,4 +1,4 @@
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, type Resolver, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Trade } from '../types/trade';
@@ -7,6 +7,8 @@ import { db } from '../db/db';
 import { calculatePnL, calculatePnLPercent, calculateRiskReward } from '../utils/calculations';
 import { useEffect } from 'react';
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
+import { MarketDataService } from '../services/MarketDataService';
 import { ChevronLeft, Save } from 'lucide-react';
 import {
     Box,
@@ -82,10 +84,10 @@ export function TradeForm() {
         watch,
         reset,
         setValue,
+        getValues,
         formState: { errors, isSubmitting },
     } = useForm<TradeFormValues>({
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(tradeSchema) as any,
+        resolver: zodResolver(tradeSchema) as unknown as Resolver<TradeFormValues>,
         defaultValues: {
             date: new Date().toISOString().split('T')[0],
             type: 'Stock',
@@ -101,6 +103,7 @@ export function TradeForm() {
     const side = watch('side');
     const type = watch('type');
     const strategy = watch('strategy');
+    const status = watch('status');
 
     // Auto-configure form based on strategy
     useEffect(() => {
@@ -125,6 +128,36 @@ export function TradeForm() {
             setValue('optionType', 'Put');
         }
     }, [strategy, setValue]);
+
+    // Market Data Auto-fill
+    const symbol = watch('symbol');
+    useEffect(() => {
+        const fetchPrice = async () => {
+            if (!symbol || symbol.length < 2 || isEditMode) return;
+            // Only fetch if entry price is empty/zero to avoid overwriting user input
+            // OR if user just typed the symbol and hasn't touched price yet.
+            const currentPrice = getValues('entryPrice');
+            if (currentPrice && currentPrice > 0) return;
+
+            // Debounce slightly to avoid spamming while typing
+            const timeoutId = setTimeout(async () => {
+                try {
+                    const quote = await MarketDataService.getQuote(symbol);
+                    if (quote && quote.price) {
+                        // Check again before setting
+                        if (!getValues('entryPrice')) {
+                            setValue('entryPrice', quote.price);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Failed to auto-fill price", err);
+                }
+            }, 1000);
+
+            return () => clearTimeout(timeoutId);
+        };
+        fetchPrice();
+    }, [symbol, isEditMode, setValue, getValues]);
 
     const isCreditStrategy = side === 'Sell' && type === 'Option';
 
@@ -151,6 +184,7 @@ export function TradeForm() {
         }
     }, [id, isEditMode, reset]);
 
+    const { user } = useAuth();
     // Image Handling
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
@@ -161,7 +195,7 @@ export function TradeForm() {
                     const reader = new FileReader();
                     reader.onload = (event) => {
                         const base64 = event.target?.result as string;
-                        const currentImages = watch('screenshots') || [];
+                        const currentImages = getValues('screenshots') || [];
                         setValue('screenshots', [...currentImages, base64]);
                     };
                     reader.readAsDataURL(blob);
@@ -171,11 +205,15 @@ export function TradeForm() {
     };
 
     const removeImage = (index: number) => {
-        const currentImages = watch('screenshots') || [];
+        const currentImages = getValues('screenshots') || [];
         setValue('screenshots', currentImages.filter((_, i) => i !== index));
     };
 
-    const onSubmit = async (data: TradeFormValues) => {
+    const onSubmit: SubmitHandler<TradeFormValues> = async (data) => {
+        if (!user) {
+            alert('You must be logged in to save a trade.');
+            return;
+        }
         try {
             const hasExitPrice = data.exitPrice !== null && data.exitPrice !== undefined;
             const pnl = (hasExitPrice && data.status === 'Closed' && data.exitPrice !== undefined)
@@ -201,6 +239,7 @@ export function TradeForm() {
 
             const tradeData = {
                 ...data,
+                userId: user.uid,
                 symbol: formattedSymbol,
                 accountId: selectedAccount, // Assign current account
                 date: new Date(data.date),
@@ -259,7 +298,7 @@ export function TradeForm() {
                 </Button>
             </Box>
 
-            <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 4, borderRadius: 3 }}>
+            <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 4 }}>
                 <Grid container spacing={3}>
                     {/* Basic Info */}
                     <Grid size={{ xs: 12, md: 6 }}>
@@ -306,27 +345,29 @@ export function TradeForm() {
                     </Grid>
 
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                            select
-                            label="Strategy"
-                            fullWidth
-                            {...register('strategy')}
-                            SelectProps={{ native: true }}
-                            InputLabelProps={{ shrink: true }}
-                            helperText="Selecting a strategy sets defaults"
-                        >
-                            <option value="">Custom / None</option>
-                            <optgroup label="Options">
-                                <option value="Cash Secured Put">Cash Secured Put (CSP)</option>
-                                <option value="Covered Call">Covered Call (CC)</option>
-                                <option value="Long Call">Long Call</option>
-                                <option value="Long Put">Long Put</option>
-                            </optgroup>
-                            <optgroup label="Stocks">
-                                <option value="Long Stock">Long Stock</option>
-                                <option value="Short Stock">Short Stock</option>
-                            </optgroup>
-                        </TextField>
+                        <Controller
+                            name="strategy"
+                            control={control}
+                            render={({ field: { onChange, value } }) => (
+                                <Autocomplete
+                                    freeSolo
+                                    options={[
+                                        'Trend Following', 'Reversal', 'Breakout', 'Scalp', 'Swing', 'News Catalyst', 'FOMO',
+                                        'Cash Secured Put', 'Covered Call', 'Long Call', 'Long Put', 'Long Stock', 'Short Stock'
+                                    ]}
+                                    value={value || ''}
+                                    onChange={(_, newValue) => onChange(newValue)}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Strategy / Setup"
+                                            placeholder="e.g. Reversal, Trend..."
+                                            helperText="Select or type custom strategy"
+                                        />
+                                    )}
+                                />
+                            )}
+                        />
                     </Grid>
                     <Grid size={{ xs: 12, md: 12 }}>
                         <FormControl component="fieldset">
@@ -339,13 +380,13 @@ export function TradeForm() {
                                         <FormControlLabel
                                             value="Buy"
                                             control={<Radio color="success" />}
-                                            label={watch('type') === 'Option' ? 'Buy to Open (Debit)' : 'Long (Buy)'}
+                                            label={type === 'Option' ? 'Buy to Open (Debit)' : 'Long (Buy)'}
                                             sx={{ color: 'success.main' }}
                                         />
                                         <FormControlLabel
                                             value="Sell"
                                             control={<Radio color="error" />}
-                                            label={watch('type') === 'Option' ? 'Sell to Open (Credit)' : 'Short (Sell)'}
+                                            label={type === 'Option' ? 'Sell to Open (Credit)' : 'Short (Sell)'}
                                             sx={{ color: 'error.main' }}
                                         />
                                     </RadioGroup>
@@ -355,7 +396,7 @@ export function TradeForm() {
                     </Grid>
 
                     {/* Option Details - Only shown if type is Option */}
-                    {watch('type') === 'Option' && (
+                    {type === 'Option' && (
                         <Grid size={{ xs: 12 }}>
                             <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper', mb: 2 }}>
                                 <Typography variant="subtitle2" gutterBottom color="primary">Option Details</Typography>
@@ -429,7 +470,7 @@ export function TradeForm() {
                             inputProps={{ step: 'any' }}
                             {...register('exitPrice', { valueAsNumber: true })}
                             error={!!errors.exitPrice}
-                            helperText={errors.exitPrice?.message || (watch('status') === 'Open' ? 'Not applicable for open trades' : '')}
+                            helperText={errors.exitPrice?.message || (status === 'Open' ? 'Not applicable for open trades' : '')}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -440,8 +481,8 @@ export function TradeForm() {
                             InputLabelProps={{ shrink: true }}
                             {...register('exitDate')}
                             error={!!errors.exitDate}
-                            helperText={errors.exitDate?.message || (watch('status') === 'Open' ? 'Not applicable for open trades' : '')}
-                            disabled={watch('status') === 'Open'}
+                            helperText={errors.exitDate?.message || (status === 'Open' ? 'Not applicable for open trades' : '')}
+                            disabled={status === 'Open'}
                         />
                     </Grid>
 

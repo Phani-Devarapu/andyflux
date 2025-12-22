@@ -6,3 +6,9 @@
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   @apply bg-gray-50 text-gray-900;
 }
+
+/* Premium Dark Mode Gradient Background */
+.dark body {
+  background: radial-gradient(circle at 50% 0%, #172033 0%, #0B0E14 100%);
+  min-height: 100vh;
+}

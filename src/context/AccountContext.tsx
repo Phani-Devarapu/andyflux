@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-type AccountType = 'trading' | 'investing';
+type AccountType = 'TFSA' | 'FHSA' | 'NON_REGISTERED';
 
 interface AccountContextType {
     selectedAccount: AccountType;
@@ -8,7 +8,7 @@ interface AccountContextType {
 }
 
 const AccountContext = createContext<AccountContextType>({
-    selectedAccount: 'trading',
+    selectedAccount: 'TFSA',
     switchAccount: () => { },
 });
 
@@ -18,7 +18,7 @@ export const useAccount = () => useContext(AccountContext);
 export const AccountProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedAccount, setSelectedAccount] = useState<AccountType>(() => {
         const saved = localStorage.getItem('selectedAccount');
-        return (saved === 'trading' || saved === 'investing') ? saved : 'trading';
+        return (saved === 'TFSA' || saved === 'FHSA' || saved === 'NON_REGISTERED') ? saved : 'TFSA';
     });
 
     const switchAccount = (account: AccountType) => {

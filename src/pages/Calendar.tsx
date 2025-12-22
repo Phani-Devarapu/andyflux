@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
 import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { ContributionGraph } from '../components/analytics/ContributionGraph';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
@@ -37,8 +38,12 @@ export function Calendar() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const { selectedAccount } = useAccount();
+    const { user } = useAuth();
     const theme = useTheme();
-    const trades = useLiveQuery(() => db.trades.where('accountId').equals(selectedAccount).toArray(), [selectedAccount]);
+    const trades = useLiveQuery(async () => {
+        if (!selectedAccount || !user) return [];
+        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -48,15 +53,23 @@ export function Calendar() {
     const emptySlots = Array(startDayOfWeek).fill(null);
 
     const getDayStats = (date: Date) => {
-        if (!trades) return { pnl: 0, count: 0, wins: 0, losses: 0, trades: [] };
+        if (!trades) return { pnl: 0, count: 0, wins: 0, losses: 0, invested: 0, trades: [] };
         const daysTrades = trades.filter(t => isSameDay(new Date(t.date), date));
         const pnl = daysTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
         const count = daysTrades.length;
         const wins = daysTrades.filter(t => (t.pnl || 0) > 0).length;
         const losses = daysTrades.filter(t => (t.pnl || 0) < 0).length;
-        return { pnl, count, wins, losses, trades: daysTrades };
-        return { pnl, count, wins, losses, trades: daysTrades };
+        // Calculate Invested: Only for Open trades or just general activity? 
+        // User wants "if its invested display as black".
+        // Let's sum invested for all Buy trades on that day, or just focus on the display logic.
+        // Ideally, if PnL is 0 (all open trades), we show the total cost of those trades.
+        const invested = daysTrades.reduce((acc, t) => acc + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
+
+        return { pnl, count, wins, losses, invested, trades: daysTrades };
     };
+
+    // ... (rest of code)
+
 
     // Calculate intensity for heatmap
     // Simple logic: Scale based on PnL magnitude relative to a baseline?
@@ -164,7 +177,7 @@ export function Calendar() {
 
                     {/* Days */}
                     {daysInMonth.map(day => {
-                        const { pnl, count, wins, losses } = getDayStats(day);
+                        const { pnl, count, wins, losses, invested } = getDayStats(day);
                         const today = isToday(day);
                         const isLight = theme.palette.mode === 'light';
 
@@ -213,11 +226,11 @@ export function Calendar() {
                                         <Typography
                                             variant="body1"
                                             fontWeight="bold"
-                                            color={pnl >= 0 ? 'success.main' : 'error.main'}
+                                            color={pnl !== 0 ? (pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
                                             align="center"
                                             sx={{ my: 1 }}
                                         >
-                                            {formatCurrency(pnl)}
+                                            {formatCurrency(pnl !== 0 ? pnl : invested)}
                                         </Typography>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <Typography variant="caption" color="text.secondary" fontWeight="medium">
@@ -321,13 +334,22 @@ export function Calendar() {
                                                         sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold' }}
                                                     />
                                                 </Stack>
-                                                <Typography
-                                                    variant="h6"
-                                                    fontWeight="900"
-                                                    color={(trade.pnl || 0) >= 0 ? 'success.main' : 'error.main'}
-                                                >
-                                                    {formatCurrency(trade.pnl || 0)}
-                                                </Typography>
+                                                <Box sx={{ textAlign: 'right' }}>
+                                                    <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                                        {(trade.pnl && trade.pnl !== 0) ? 'REALIZED P/L' : 'INVESTED'}
+                                                    </Typography>
+                                                    <Typography
+                                                        variant="h6"
+                                                        fontWeight="900"
+                                                        color={(trade.pnl && trade.pnl !== 0)
+                                                            ? (trade.pnl >= 0 ? 'success.main' : 'error.main')
+                                                            : 'text.primary'}
+                                                    >
+                                                        {(trade.pnl && trade.pnl !== 0)
+                                                            ? formatCurrency(trade.pnl)
+                                                            : formatCurrency((trade.entryPrice * trade.quantity) + (trade.fees || 0))}
+                                                    </Typography>
+                                                </Box>
                                             </Box>
 
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2 }}>

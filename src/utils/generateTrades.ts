@@ -2,7 +2,7 @@ import { db } from '../db/db';
 import type { Trade, TradeType, TradeSide } from '../types/trade';
 import { calculatePnL, calculatePnLPercent } from './calculations';
 
-export const generateTrades = async (count: number = 1000) => {
+export const generateTrades = async (userId: string, count: number = 1000) => {
     const symbols = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA', 'SPY', 'QQQ', 'AMD', 'META'];
     const types: TradeType[] = ['Stock', 'ETF', 'Option', 'Future', 'Crypto', 'Forex'];
     const sides: TradeSide[] = ['Buy', 'Sell'];
@@ -32,6 +32,7 @@ export const generateTrades = async (count: number = 1000) => {
         }
 
         const trade: Partial<Trade> = { // Partial<Trade> to bypass id requirement for insert
+            userId,
             date: new Date(Date.now() - Math.floor(Math.random() * 10000000000)), // Random date in past
             symbol,
             type: types[Math.floor(Math.random() * types.length)],
@@ -43,7 +44,7 @@ export const generateTrades = async (count: number = 1000) => {
             strategy: strategies[Math.floor(Math.random() * strategies.length)],
             pnl,
             pnlPercentage,
-            accountId: 'trading' as const, // Default account for generated trades
+            accountId: 'TFSA' as const, // Default account for generated trades
             createdAt: new Date(),
             updatedAt: new Date(),
         };
@@ -53,5 +54,5 @@ export const generateTrades = async (count: number = 1000) => {
 
     await db.trades.clear();
     await db.trades.bulkAdd(trades as Trade[]);
-    console.log(`Successfully generated ${count} trades.`);
+    console.log(`Successfully generated ${count} trades for user ${userId}.`);
 };

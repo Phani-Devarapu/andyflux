@@ -26,10 +26,15 @@ ChartJS.register(
 );
 
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 
 export function StrategyAnalytics() {
     const { selectedAccount } = useAccount();
-    const trades = useLiveQuery(() => db.trades.where('accountId').equals(selectedAccount).toArray(), [selectedAccount]);
+    const { user } = useAuth();
+    const trades = useLiveQuery(async () => {
+        if (!selectedAccount || !user) return [];
+        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
     const theme = useTheme();
 
     if (!trades) return <Typography>Loading...</Typography>;

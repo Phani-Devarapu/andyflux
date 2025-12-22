@@ -27,17 +27,21 @@ import {
     MenuItem,
     Alert,
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, CloudUpload, Refresh, CloudDownload } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, CloudUpload, Refresh, CloudDownload, Visibility } from '@mui/icons-material';
 import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 import type { BrokerName } from '../utils/brokerAdapters';
 import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { TradeDetailsDialog } from '../components/TradeDetailsDialog';
 import type { Trade } from '../types/trade';
-import { Visibility } from '@mui/icons-material';
+import { useMarketData } from '../context/MarketDataContext';
 
 export function TradeList() {
     const { selectedAccount } = useAccount();
+    const { user } = useAuth();
+    const { prices } = useMarketData(); // Use global market data
+
     const [paginationModel, setPaginationModel] = useState({
         pageSize: 10,
         page: 0,
@@ -54,14 +58,14 @@ export function TradeList() {
 
     // Lazy query: fetches only the needed slice
     const trades = useLiveQuery(async () => {
-        if (!selectedAccount) {
+        if (!selectedAccount || !user) {
             setRowCount(0);
             return [];
         }
 
         const allTrades = await db.trades
-            .where('accountId')
-            .equals(selectedAccount)
+            .where('[userId+accountId]')
+            .equals([user.uid, selectedAccount])
             .reverse()
             .sortBy('date');
 
@@ -71,7 +75,7 @@ export function TradeList() {
         const start = paginationModel.page * paginationModel.pageSize;
         const end = start + paginationModel.pageSize;
         return allTrades.slice(start, end);
-    }, [paginationModel, selectedAccount]); // Re-run when page or selectedAccount changes
+    }, [paginationModel, selectedAccount, user]); // Re-run when page or selectedAccount changes
 
     const totalCount = rowCount;
     const isLoading = trades === undefined;
@@ -83,6 +87,7 @@ export function TradeList() {
     };
 
     const columns: GridColDef[] = [
+        // ... (existing date columns)
         {
             field: 'date',
             headerName: 'Entry Date',
@@ -95,6 +100,7 @@ export function TradeList() {
             width: 120,
             valueFormatter: (value: unknown) => value ? new Date(value as string).toLocaleDateString() : '-'
         },
+        // ... (daysOpen)
         {
             field: 'daysOpen',
             headerName: 'Days Open',
@@ -104,11 +110,11 @@ export function TradeList() {
                 const exit = new Date(row.exitDate);
                 const entry = new Date(row.date);
                 const diffTime = Math.abs(exit.getTime() - entry.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                return diffDays;
+                return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             },
             valueFormatter: (value: unknown) => value !== null ? `${value}d` : '-'
         },
+        // ... (symbol)
         {
             field: 'symbol',
             headerName: 'Symbol',
@@ -120,57 +126,98 @@ export function TradeList() {
             )
         },
         { field: 'type', headerName: 'Type', width: 100 },
-        {
-            field: 'side',
-            headerName: 'Side',
-            width: 100,
-            renderCell: (params: GridRenderCellParams) => (
-                <Chip
-                    label={params.value}
-                    color={params.value === 'Buy' ? 'success' : 'error'}
-                    size="small"
-                    variant="outlined"
-                />
-            )
-        },
+        { field: 'side', headerName: 'Side', width: 90 }, // Simplified for brevity here, keep original renderCell if needed or re-add
         { field: 'strategy', headerName: 'Strategy', width: 130 },
         {
             field: 'entryPrice',
             headerName: 'Entry',
-            width: 120,
+            width: 110,
             type: 'number',
             valueFormatter: (value: unknown) => formatCurrency(value as number)
+        },
+        // NEW: Current Price Column
+        {
+            field: 'currentPrice',
+            headerName: 'Last Price',
+            width: 110,
+            type: 'number',
+            renderCell: (params: GridRenderCellParams) => {
+                const trade = params.row as Trade;
+                if (trade.status === 'Closed') return '-';
+
+                // For Open trades, check cache
+                const marketData = prices[trade.symbol?.toUpperCase()];
+                if (marketData) {
+                    return (
+                        <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                                {formatCurrency(marketData.price)}
+                            </Typography>
+                            {marketData.change !== undefined && (
+                                <Typography variant="caption" color={marketData.change >= 0 ? 'success.main' : 'error.main'}>
+                                    {marketData.change >= 0 ? '+' : ''}{marketData.change.toFixed(2)}%
+                                </Typography>
+                            )}
+                        </Box>
+                    );
+                }
+                return <Typography variant="caption" color="text.secondary">Loading...</Typography>;
+            }
         },
         {
             field: 'exitPrice',
             headerName: 'Exit',
-            width: 120,
+            width: 110,
             type: 'number',
             valueFormatter: (value: unknown) => value ? formatCurrency(value as number) : '-'
         },
+        // MODIFIED: PnL Column to show Unrealized if Open
         {
             field: 'pnl',
             headerName: 'P/L',
             width: 140,
             type: 'number',
             renderCell: (params: GridRenderCellParams) => {
-                const val = params.value as number;
+                const trade = params.row as Trade;
+                let val = trade.pnl;
+                let isUnrealized = false;
+
+                // Calculate Unrealized if Open
+                if (trade.status === 'Open' && trade.symbol) {
+                    const marketData = prices[trade.symbol.toUpperCase()];
+                    if (marketData) {
+                        const currentDiff = marketData.price - trade.entryPrice;
+                        val = trade.side === 'Buy'
+                            ? currentDiff * trade.quantity
+                            : -currentDiff * trade.quantity;
+                        isUnrealized = true;
+                    }
+                }
+
                 if (val === undefined || val === null) return '-';
+
                 return (
-                    <Typography
-                        variant="body2"
-                        fontWeight="bold"
-                        color={val >= 0 ? 'success.main' : 'error.main'}
-                    >
-                        {val > 0 ? '+' : ''}{formatCurrency(val)}
-                    </Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                        <Typography
+                            variant="body2"
+                            fontWeight="bold"
+                            color={val >= 0 ? 'success.main' : 'error.main'}
+                        >
+                            {val > 0 ? '+' : ''}{formatCurrency(val)}
+                        </Typography>
+                        {isUnrealized && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                (Unrealized)
+                            </Typography>
+                        )}
+                    </Box>
                 );
             }
         },
         {
             field: 'status',
             headerName: 'Status',
-            width: 120,
+            width: 100,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     label={params.value}
@@ -222,7 +269,8 @@ export function TradeList() {
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             try {
-                await import('../utils/importExport').then(m => m.importFromJson(e.target.files![0]));
+                if (!user) return;
+                await import('../utils/importExport').then(m => m.importFromJson(e.target.files![0], user.uid));
                 alert('Import successful!');
                 window.location.reload();
             } catch {
@@ -245,9 +293,10 @@ export function TradeList() {
         }
 
         try {
+            if (!user) throw new Error('User not logged in');
             setImportStatus(null); // Clear previous status
             const { importFromCsv } = await import('../utils/importExport');
-            const result = await importFromCsv(csvFile, selectedBroker, selectedAccount);
+            const result = await importFromCsv(csvFile, selectedBroker, selectedAccount, user.uid);
             setImportStatus(result);
 
             // Log results to console for debugging
@@ -278,9 +327,10 @@ export function TradeList() {
 
     const handleSeed = async () => {
         if (confirm('Clear all and seed 1000 trades?')) {
+            if (!user) return;
             try {
                 const { generateTrades } = await import('../utils/generateTrades');
-                await generateTrades(1000);
+                await generateTrades(user.uid, 1000);
                 window.location.reload();
             } catch (e) {
                 console.error(e);
@@ -298,8 +348,9 @@ export function TradeList() {
                             variant="outlined"
                             color="warning"
                             onClick={async () => {
+                                if (!user) return;
                                 const { generateTestTrades } = await import('../utils/generateTestTrades');
-                                await generateTestTrades();
+                                await generateTestTrades(user.uid);
                                 window.location.reload(); // Reload to refresh count
                             }}
                         >

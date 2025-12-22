@@ -5,7 +5,8 @@ export type WinLoss = 'Win' | 'Loss' | 'Breakeven' | 'Open';
 
 export interface Trade {
     id?: number;
-    accountId: 'trading' | 'investing';
+    userId: string;
+    accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED';
     date: Date;
     symbol: string;
     type: TradeType;
@@ -24,7 +25,7 @@ export interface Trade {
     pnl?: number;
     pnlPercentage?: number;
     riskRewardRatio?: number;
-    strategy?: string;
+    strategy?: string; // e.g., "Reversal", "Trend", "FOMO"
     timeframe?: string;
     emotions?: string[];
     notes?: string;

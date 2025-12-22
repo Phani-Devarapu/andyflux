@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useLiveQuery } from 'dexie-react-hooks';
+import * as React from 'react';
 import { db } from '../db/db';
+import { useMarketData } from '../context/MarketDataContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -13,10 +15,11 @@ import {
     ArcElement,
     BarElement,
 } from 'chart.js';
-import { Line, Doughnut } from 'react-chartjs-2';
+import { Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '../utils/calculations';
 import { Grid, Card, CardContent, Typography, Box, useTheme, Skeleton, Button, Stack } from '@mui/material';
 import { BarChart3, PlusCircle } from 'lucide-react';
+import { EquityChart } from '../components/charts/EquityChart';
 
 ChartJS.register(
     CategoryScale,
@@ -31,11 +34,52 @@ ChartJS.register(
 );
 
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 
 export function Dashboard() {
     const { selectedAccount } = useAccount();
-    const trades = useLiveQuery(() => db.trades.where('accountId').equals(selectedAccount).toArray(), [selectedAccount]);
+    const { user } = useAuth();
+    const trades = useLiveQuery(async () => {
+        if (!selectedAccount || !user) return [];
+        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
     const theme = useTheme();
+
+    const { prices } = useMarketData();
+    const [unrealizedPnL, setUnrealizedPnL] = React.useState<number>(0);
+
+    const greeting = React.useMemo(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) return 'Good morning';
+        if (hour < 18) return 'Good afternoon';
+        return 'Good evening';
+    }, []);
+
+    // Calculate Unrealized PnL from global prices
+    React.useEffect(() => {
+        if (!trades) return;
+        const openTrades = trades.filter(t => t.status === 'Open');
+
+        if (openTrades.length === 0) {
+            setUnrealizedPnL(0);
+            return;
+        }
+
+        let total = 0;
+        for (const trade of openTrades) {
+            if (trade.symbol) {
+                const marketData = prices[trade.symbol.toUpperCase()];
+                if (marketData) {
+                    const currentDiff = marketData.price - trade.entryPrice;
+                    const tradePnL = trade.side === 'Buy'
+                        ? currentDiff * trade.quantity
+                        : -currentDiff * trade.quantity;
+                    total += tradePnL;
+                }
+            }
+        }
+        setUnrealizedPnL(total);
+    }, [trades, prices]);
 
     if (!trades) {
         return (
@@ -49,6 +93,7 @@ export function Dashboard() {
         );
     }
 
+    // Derived state (not hooks)
     const closedTrades = trades.filter(t => t.status === 'Closed');
 
     // Empty State
@@ -95,7 +140,7 @@ export function Dashboard() {
                         variant="contained"
                         size="large"
                         startIcon={<PlusCircle />}
-                        sx={{ px: 4, py: 1.5, borderRadius: 3, fontSize: '1.rem' }}
+                        sx={{ px: 4, py: 1.5, fontSize: '1.rem' }}
                     >
                         Log First Trade
                     </Button>
@@ -104,11 +149,12 @@ export function Dashboard() {
                         size="large"
                         color="warning"
                         onClick={async () => {
+                            if (!user) return;
                             const { generateTestTrades } = await import('../utils/generateTestTrades');
-                            await generateTestTrades(selectedAccount);
+                            await generateTestTrades(user.uid, selectedAccount);
                             window.location.reload();
                         }}
-                        sx={{ px: 4, py: 1.5, borderRadius: 3 }}
+                        sx={{ px: 4, py: 1.5 }}
                     >
                         Generate Test Data
                     </Button>
@@ -117,9 +163,6 @@ export function Dashboard() {
         );
     }
 
-    const sortedTrades = [...closedTrades].sort((a, b) => a.date.getTime() - b.date.getTime());
-
-    // Calculations
     const totalPnL = closedTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
     const winCount = closedTrades.filter(t => (t.pnl || 0) > 0).length;
     const lossCount = closedTrades.filter(t => (t.pnl || 0) < 0).length;
@@ -132,27 +175,7 @@ export function Dashboard() {
     const avgLoss = losses.length > 0 ? losses.reduce((acc, t) => acc + (t.pnl || 0), 0) / losses.length : 0;
 
     // Equity Curve Data
-    let runningPnL = 0;
-    const equityData = sortedTrades.map(t => {
-        runningPnL += (t.pnl || 0);
-        return runningPnL;
-    });
-    const equityLabels = sortedTrades.map(t => t.date.toISOString().split('T')[0]);
-
-    const lineChartData = {
-        labels: equityLabels,
-        datasets: [
-            {
-                label: 'Equity Curve',
-                data: equityData,
-                borderColor: theme.palette.success.main,
-                backgroundColor: theme.palette.success.main,
-                tension: 0.3,
-                pointRadius: 0,
-                borderWidth: 2,
-            },
-        ],
-    };
+    // We now use EquityChart component which handles aggregation
 
     const winRateData = {
         labels: ['Wins', 'Losses'],
@@ -193,9 +216,42 @@ export function Dashboard() {
 
     return (
         <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h4" fontWeight={700} sx={{ mb: 4, letterSpacing: -1 }}>
-                Dashboard
-            </Typography>
+            {/* Premium Header */}
+            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                    <Typography variant="h4" sx={{
+                        fontWeight: 800,
+                        background: theme.palette.mode === 'dark'
+                            ? 'linear-gradient(45deg, #60A5FA 30%, #A78BFA 90%)'
+                            : 'linear-gradient(45deg, #2563EB 30%, #7C3AED 90%)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        mb: 0.5,
+                        letterSpacing: '-0.02em'
+                    }}>
+                        {greeting}, {user?.displayName ? user.displayName.split(' ')[0] : 'Trader'}
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary" sx={{ fontWeight: 500 }}>
+                        Here is your portfolio performance for today.
+                    </Typography>
+                </Box>
+                <Button
+                    component={Link}
+                    to="/add"
+                    variant="contained"
+                    startIcon={<PlusCircle size={20} />}
+                    sx={{
+                        px: 3,
+                        py: 1,
+                        borderRadius: '100px',
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        boxShadow: theme.palette.mode === 'dark' ? '0 0 20px rgba(59, 130, 246, 0.5)' : 2
+                    }}
+                >
+                    New Trade
+                </Button>
+            </Box>
 
             {/* Stats Cards */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -218,21 +274,10 @@ export function Dashboard() {
                 <Grid size={{ xs: 12, lg: 8 }}>
                     <Card variant="outlined" sx={{ height: 400 }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                            <Typography variant="h6" fontWeight="bold" gutterBottom>Equity Curve</Typography>
+                            <Typography variant="h6" fontWeight="bold" gutterBottom>Equity Curve (Daily Growth)</Typography>
                             <Box sx={{ flexGrow: 1, position: 'relative' }}>
-                                {sortedTrades.length > 0 ? (
-                                    <Line
-                                        data={lineChartData}
-                                        options={{
-                                            maintainAspectRatio: false,
-                                            responsive: true,
-                                            plugins: { legend: { display: false } },
-                                            scales: {
-                                                x: { grid: { display: false } },
-                                                y: { grid: { color: theme.palette.divider } }
-                                            }
-                                        }}
-                                    />
+                                {trades && trades.length > 0 ? (
+                                    <EquityChart trades={trades} unrealizedPnL={unrealizedPnL} />
                                 ) : (
                                     <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Typography color="text.secondary">No closed trades yet.</Typography>

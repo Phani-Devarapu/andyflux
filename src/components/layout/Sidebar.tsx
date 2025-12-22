@@ -1,177 +1,277 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
+    BarChart3,
+    Calendar,
     LayoutDashboard,
     List as ListIcon,
+    PieChart,
+    LogOut,
+    Cloud,
+    LogIn,
     PlusCircle,
-    Calendar as CalendarIcon,
-    BarChart3,
     Sun,
-    Moon
+    Moon,
+    Activity
 } from 'lucide-react';
 import {
+    Box,
     List,
     ListItem,
     ListItemButton,
     ListItemIcon,
     ListItemText,
-    Box,
     Typography,
-    Paper,
+    Stack,
+    Divider,
+    Button,
+    Avatar,
     useTheme,
-    IconButton,
-    Button
+    alpha,
 } from '@mui/material';
+import { useAuth } from '../../context/AuthContext';
+import { AuthDialog } from '../auth/AuthDialog';
+import { DataManagementDialog } from '../settings/DataManagementDialog';
 import { useColorMode } from '../../context/ColorModeContext';
 import { useAccount } from '../../context/AccountContext';
+import { useState } from 'react';
 import logo from '../../assets/logo.png';
+import { GoalsWidget } from '../widgets/GoalsWidget';
 
-export function Sidebar({ onClose }: { onClose?: () => void }) {
-    const location = useLocation();
-    const theme = useTheme();
-    const { mode, toggleColorMode } = useColorMode();
-    const { selectedAccount, switchAccount } = useAccount();
+const MENU_ITEMS = [
+    { text: 'Dashboard', icon: LayoutDashboard, path: '/' },
+    { text: 'Calendar', icon: Calendar, path: '/calendar' },
+    { text: 'Trade Log', icon: ListIcon, path: '/trades' },
+    { text: 'Add Trade', icon: PlusCircle, path: '/add' },
+    { text: 'Activity Reports', icon: Activity, path: '/activity-reports' },
+    { text: 'Ticker Analytics', icon: BarChart3, path: '/ticker-analytics' },
+    { text: 'Strategy Analytics', icon: PieChart, path: '/strategy-analytics' },
+    // { text: 'Settings', icon: Settings, path: '/settings' },
+];
 
-    const navItems = [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
-        { icon: CalendarIcon, label: 'Calendar', path: '/calendar' },
-        { icon: ListIcon, label: 'Trade Log', path: '/trades' },
-        { icon: PlusCircle, label: 'Add Trade', path: '/add' },
-        { icon: BarChart3, label: 'Analytics', path: '/analytics' },
-    ];
-
-    return (
-        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: `1px solid ${theme.palette.divider}`, gap: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <img src={logo} alt="Andy Flux" style={{ height: 42, objectFit: 'contain' }} />
-                    <Typography variant="h6" fontWeight="bold" sx={{
-                        background: 'linear-gradient(45deg, #10B981, #3B82F6)',
-                        backgroundClip: 'text',
-                        textFillColor: 'transparent',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        letterSpacing: 1
-                    }}>
-                        ANDY FLUX
-                    </Typography>
-                </Box>
-
-                <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
-                        Account
-                    </Typography>
-                    <Box
-                        sx={{
-                            display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
-                            gap: 1,
-                            p: 0.5,
-                            bgcolor: 'background.default',
-                            borderRadius: 2,
-                        }}
-                    >
-                        <Button
-                            variant={selectedAccount === 'trading' ? 'contained' : 'outlined'}
-                            size="small"
-                            onClick={() => switchAccount('trading')}
-                            sx={{
-                                fontSize: '0.75rem',
-                                py: 0.75,
-                                textTransform: 'none',
-                                fontWeight: selectedAccount === 'trading' ? 'bold' : 'medium',
-                            }}
-                        >
-                            🚀 Trading
-                        </Button>
-                        <Button
-                            variant={selectedAccount === 'investing' ? 'contained' : 'outlined'}
-                            size="small"
-                            onClick={() => switchAccount('investing')}
-                            sx={{
-                                fontSize: '0.75rem',
-                                py: 0.75,
-                                textTransform: 'none',
-                                fontWeight: selectedAccount === 'investing' ? 'bold' : 'medium',
-                            }}
-                        >
-                            💰 Investing
-                        </Button>
-                    </Box>
-                </Box>
-            </Box>
-
-            <List sx={{ px: 2, mt: 2, flexGrow: 1 }}>
-                {navItems.map((item) => {
-                    const isActive = location.pathname === item.path;
-                    return (
-                        <ListItem key={item.path} disablePadding sx={{ mb: 1 }}>
-                            <ListItemButton
-                                component={NavLink}
-                                to={item.path}
-                                onClick={onClose}
-                                sx={{
-                                    borderRadius: 3,
-                                    backgroundColor: isActive ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
-                                    color: isActive ? 'primary.main' : 'text.secondary',
-                                    '&:hover': {
-                                        backgroundColor: isActive ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                                    }
-                                }}
-                            >
-                                <ListItemIcon sx={{ minWidth: 40, color: isActive ? 'primary.main' : 'text.secondary' }}>
-                                    <item.icon size={20} />
-                                </ListItemIcon>
-                                <ListItemText
-                                    primary={item.label}
-                                    primaryTypographyProps={{ fontWeight: isActive ? 700 : 500 }}
-                                />
-                            </ListItemButton>
-                        </ListItem>
-                    );
-                })}
-
-                {/* Theme Toggle Button */}
-                <ListItem disablePadding sx={{ mb: 1, mt: 2 }}>
-                    <ListItemButton
-                        onClick={toggleColorMode}
-                        sx={{
-                            borderRadius: 3,
-                            color: 'text.secondary',
-                            '&:hover': {
-                                backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                            }
-                        }}
-                    >
-                        <ListItemIcon sx={{ minWidth: 40, color: 'text.secondary' }}>
-                            {mode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                        </ListItemIcon>
-                        <ListItemText
-                            primary={mode === 'dark' ? "Light Mode" : "Dark Mode"}
-                            primaryTypographyProps={{ fontWeight: 500 }}
-                        />
-                    </ListItemButton>
-                </ListItem>
-            </List>
-
-            <Box sx={{ p: 2 }}>
-                <Paper sx={{ p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                        <Typography variant="caption" color="text.secondary" sx={{ letterSpacing: 1, textTransform: 'uppercase' }}>
-                            Account
-                        </Typography>
-                        <IconButton onClick={toggleColorMode} size="small" sx={{ ml: 1 }}>
-                            {mode === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-                        </IconButton>
-                    </Box>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                        Default User
-                    </Typography>
-                    <Typography variant="caption" color="success.main" fontWeight="bold">
-                        LIVE
-                    </Typography>
-                </Paper>
-            </Box>
-        </Box >
-    );
+interface SidebarProps {
+    onClose?: () => void;
 }
 
+export function Sidebar({ onClose }: SidebarProps) {
+    const navigate = useNavigate();
+    const location = useLocation();
+    const theme = useTheme();
+    const { user, signOut } = useAuth();
+    const { mode, toggleColorMode } = useColorMode();
+    const { selectedAccount, switchAccount } = useAccount();
+    const [authOpen, setAuthOpen] = useState(false);
+    const [dataOpen, setDataOpen] = useState(false);
+
+    const handleNavigation = (path: string) => {
+        navigate(path);
+        onClose?.();
+    };
+
+    return (
+        <>
+            <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+                {/* Logo Area */}
+                <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderBottom: `1px solid ${theme.palette.divider}`, gap: 2 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                        <img src={logo} alt="Andy Flux" style={{ height: 42, objectFit: 'contain' }} />
+                        <Typography variant="h6" fontWeight="bold" sx={{
+                            background: 'linear-gradient(45deg, #10B981, #3B82F6)',
+                            backgroundClip: 'text',
+                            textFillColor: 'transparent',
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                            letterSpacing: 1
+                        }}>
+                            ANDY FLUX
+                        </Typography>
+                    </Box>
+
+                    {/* Account Switcher */}
+                    <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ px: 0.5 }}>
+                            Account
+                        </Typography>
+                        <Box sx={{ p: 0.5 }}>
+                            <Button
+                                fullWidth
+                                variant="outlined"
+                                onClick={(_) => {
+                                    // Using a Menu for a cleaner dropdown feel than native select
+                                    // Or just use a Select. Let's use a nice Select.
+                                }}
+                                sx={{
+                                    justifyContent: 'space-between',
+                                    textTransform: 'none',
+                                    color: 'text.primary',
+                                    borderColor: 'divider',
+                                    '&:hover': { borderColor: 'primary.main' },
+                                    display: 'none' // Hidden for now, replacing with Select below
+                                }}
+                            >
+                                {selectedAccount}
+                            </Button>
+                            {/* Actual Select Implementation */}
+                            <Box sx={{ position: 'relative' }}>
+                                <select
+                                    value={selectedAccount}
+                                    onChange={(e) => switchAccount(e.target.value as any)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px',
+                                        borderRadius: '8px',
+                                        border: `1px solid ${theme.palette.divider}`,
+                                        backgroundColor: theme.palette.background.default,
+                                        color: theme.palette.text.primary,
+                                        fontSize: '0.9rem',
+                                        cursor: 'pointer',
+                                        outline: 'none',
+                                        appearance: 'none', // Remove native arrow
+                                        backgroundImage: `linear-gradient(45deg, transparent 50%, ${theme.palette.text.secondary} 50%), linear-gradient(135deg, ${theme.palette.text.secondary} 50%, transparent 50%)`,
+                                        backgroundPosition: 'calc(100% - 20px) calc(1em + 2px), calc(100% - 15px) calc(1em + 2px)',
+                                        backgroundSize: '5px 5px, 5px 5px',
+                                        backgroundRepeat: 'no-repeat',
+                                        fontFamily: 'inherit'
+                                    }}
+                                >
+                                    <option value="TFSA">🍁 TFSA</option>
+                                    <option value="FHSA">🏠 FHSA</option>
+                                    <option value="NON_REGISTERED">💵 Non-Registered</option>
+                                </select>
+                            </Box>
+                        </Box>
+                    </Box>
+                </Box>
+
+                {/* Navigation Items */}
+                <List sx={{ px: 2, flexGrow: 1 }}>
+                    {MENU_ITEMS.map((item) => {
+                        const Icon = item.icon;
+                        const active = location.pathname === item.path;
+                        return (
+                            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+                                <ListItemButton
+                                    onClick={() => handleNavigation(item.path)}
+                                    selected={active}
+                                    sx={{
+                                        borderRadius: 2,
+                                        py: 1.5,
+                                        color: active ? 'primary.main' : 'text.secondary',
+                                        bgcolor: active ? (theme) => alpha(theme.palette.primary.main, 0.1) : 'transparent',
+                                        '&:hover': {
+                                            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
+                                            color: 'primary.main',
+                                        },
+                                        '&.Mui-selected': {
+                                            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                                            '&:hover': {
+                                                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.15),
+                                            },
+                                        },
+                                    }}
+                                >
+                                    <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                                        <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                                    </ListItemIcon>
+                                    <ListItemText
+                                        primary={item.text}
+                                        primaryTypographyProps={{
+                                            fontWeight: active ? 700 : 500,
+                                            fontSize: '0.9rem',
+                                        }}
+                                    />
+                                </ListItemButton>
+                            </ListItem>
+                        );
+                    })}
+
+                    {/* Theme Toggle Button */}
+                    <ListItem disablePadding sx={{ mb: 1, mt: 2 }}>
+                        <ListItemButton
+                            onClick={toggleColorMode}
+                            sx={{
+                                borderRadius: 2,
+                                py: 1.5,
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    bgcolor: 'action.hover',
+                                    color: 'text.primary',
+                                }
+                            }}
+                        >
+                            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                                {mode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                            </ListItemIcon>
+                            <ListItemText
+                                primary={mode === 'dark' ? "Light Mode" : "Dark Mode"}
+                                primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }}
+                            />
+                        </ListItemButton>
+                    </ListItem>
+                </List>
+
+                <Box sx={{ px: 2, mb: 2 }}>
+                    <GoalsWidget />
+                </Box>
+
+                <Divider sx={{ mx: 3 }} />
+
+                {/* User / Auth Section */}
+                <Box sx={{ px: 3, pb: 3, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {user ? (
+                        <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 2 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: '0.875rem', fontWeight: 'bold' }}>
+                                    {user.email?.charAt(0).toUpperCase()}
+                                </Avatar>
+                                <Box sx={{ minWidth: 0 }}>
+                                    <Typography variant="body2" fontWeight={600} noWrap>
+                                        {user.email?.split('@')[0]}
+                                    </Typography>
+                                    <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                        <Cloud size={10} /> Sync Active
+                                    </Typography>
+                                </Box>
+                            </Box>
+
+                            <Stack spacing={1}>
+                                <Button
+                                    variant="outlined"
+                                    color="inherit"
+                                    size="small"
+                                    onClick={() => setDataOpen(true)}
+                                    fullWidth
+                                    sx={{ borderColor: 'divider', color: 'text.secondary' }}
+                                >
+                                    Manage Data
+                                </Button>
+                                <Button
+                                    variant="outlined"
+                                    color="error"
+                                    size="small"
+                                    startIcon={<LogOut size={14} />}
+                                    onClick={() => signOut()}
+                                    fullWidth
+                                >
+                                    Sign Out
+                                </Button>
+                            </Stack>
+                        </Box>
+                    ) : (
+                        <Button
+                            variant="contained"
+                            startIcon={<LogIn size={18} />}
+                            onClick={() => setAuthOpen(true)}
+                            fullWidth
+                            sx={{ borderRadius: 2, py: 1 }}
+                        >
+                            Sign In to Sync
+                        </Button>
+                    )}
+                </Box>
+            </Box >
+
+            <AuthDialog open={authOpen} onClose={() => setAuthOpen(false)} />
+            <DataManagementDialog open={dataOpen} onClose={() => setDataOpen(false)} />
+        </>
+    );
+}

@@ -1,0 +1,24 @@
+﻿
+> trading-journal@0.0.0 lint
+> eslint .
+
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx
+  98:24  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx:98:24
+   96 |     });
+   97 |
+>  98 |     const entryPrice = watch('entryPrice');
+      |                        ^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+   99 |     const stopLoss = watch('stopLoss');
+  100 |     const target = watch('target');
+  101 |     const side = watch('side');  react-hooks/incompatible-library
+
+C:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\services\SyncService.ts
+  98:57  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+Γ£û 2 problems (1 error, 1 warning)
+

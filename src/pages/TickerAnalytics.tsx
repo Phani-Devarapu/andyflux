@@ -25,6 +25,7 @@ import {
 import { Search } from '@mui/icons-material';
 
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 
 type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 
@@ -32,7 +33,11 @@ export const TickerAnalytics = () => {
     const { selectedAccount } = useAccount();
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-    const trades = useLiveQuery(() => db.trades.where('accountId').equals(selectedAccount).toArray(), [selectedAccount]);
+    const { user } = useAuth();
+    const trades = useLiveQuery(async () => {
+        if (!selectedAccount || !user) return [];
+        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
 
     const allTickers = useMemo(() => {
         if (!trades) return [];

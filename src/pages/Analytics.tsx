@@ -20,6 +20,7 @@ import {
 import { subWeeks, subMonths, startOfYear, isAfter } from 'date-fns';
 
 import { useAccount } from '../context/AccountContext';
+import { useAuth } from '../context/AuthContext';
 import { TickerAnalytics } from './TickerAnalytics';
 import { StrategyAnalytics } from './StrategyAnalytics';
 
@@ -30,7 +31,11 @@ type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 function AnalyticsOverview() { // Renamed from Analytics
     const { selectedAccount } = useAccount();
     const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-    const trades = useLiveQuery(() => db.trades.where('accountId').equals(selectedAccount).toArray(), [selectedAccount]);
+    const { user } = useAuth();
+    const trades = useLiveQuery(async () => {
+        if (!selectedAccount || !user) return [];
+        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
     const theme = useTheme();
 
     if (!trades) return <Typography>Loading analytics...</Typography>;
@@ -128,7 +133,7 @@ function AnalyticsOverview() { // Renamed from Analytics
             <Grid container spacing={4}>
                 {/* Ticker Performance */}
                 <Grid size={{ xs: 12, md: 6 }}>
-                    <Card variant="outlined" sx={{ height: '100%', borderRadius: 4 }}>
+                    <Card variant="outlined" sx={{ height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Profit by Ticker (Top 10)</Typography>
                             <Box sx={{ height: 300 }}>
@@ -159,7 +164,7 @@ function AnalyticsOverview() { // Renamed from Analytics
 
                 {/* Strategy Performance */}
                 <Grid size={{ xs: 12, md: 6 }}>
-                    <Card variant="outlined" sx={{ height: '100%', borderRadius: 4 }}>
+                    <Card variant="outlined" sx={{ height: '100%' }}>
                         <CardContent>
                             <Typography variant="h6" fontWeight="bold" gutterBottom>Performance by Strategy</Typography>
                             <Box sx={{ height: 300 }}>
@@ -201,7 +206,7 @@ interface MetricCardProps {
 }
 
 const MetricCard = ({ label, value, subtext, trend }: MetricCardProps) => (
-    <Card variant="outlined" sx={{ height: '100%', borderRadius: 3 }}>
+    <Card variant="outlined" sx={{ height: '100%' }}>
         <CardContent>
             <Typography variant="overline" color="text.secondary" fontWeight="bold" letterSpacing={1}>
                 {label}

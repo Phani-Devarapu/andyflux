@@ -33,7 +33,7 @@ export const exportToJson = (trades: Trade[], filename: string = 'trading-journa
     document.body.removeChild(link);
 };
 
-export const importFromJson = async (file: File) => {
+export const importFromJson = async (file: File, userId: string) => {
     return new Promise<void>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = async (e) => {
@@ -44,6 +44,7 @@ export const importFromJson = async (file: File) => {
                     // Validate and parse dates
                     const trades = data.map((t: Trade) => ({
                         ...t,
+                        userId, // Force userId to current user
                         date: new Date(t.date),
                         createdAt: new Date(t.createdAt),
                         updatedAt: new Date(t.updatedAt),
@@ -65,7 +66,8 @@ export const importFromJson = async (file: File) => {
 export const importFromCsv = async (
     file: File,
     broker: BrokerName | 'auto' = 'auto',
-    accountId: 'trading' | 'investing' = 'trading'
+    accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED' = 'TFSA',
+    userId: string
 ): Promise<{ success: number; failed: number; errors: string[] }> => {
     return new Promise((resolve, reject) => {
         Papa.parse(file, {
@@ -240,6 +242,7 @@ export const importFromCsv = async (
                             const totalFees = (entry.fees || 0) + (exit.fees || 0);
 
                             const trade: Trade = {
+                                userId,
                                 accountId,
                                 date: entry.date, // Use entry date as trade date
                                 symbol: tradeSymbol, // Use full symbol for options, underlying for stocks
@@ -275,6 +278,7 @@ export const importFromCsv = async (
                                 const now = new Date();
                                 const tradeSide: 'Buy' | 'Sell' = isShort ? 'Sell' : 'Buy';
                                 const trade: Trade = {
+                                    userId,
                                     accountId,
                                     date: entry.date,
                                     symbol: tradeSymbol,
@@ -301,6 +305,7 @@ export const importFromCsv = async (
                                 const now = new Date();
                                 const tradeSide: 'Buy' | 'Sell' = isShort ? 'Sell' : 'Buy';
                                 const trade: Trade = {
+                                    userId,
                                     accountId,
                                     date: exit.date,
                                     symbol: tradeSymbol,
