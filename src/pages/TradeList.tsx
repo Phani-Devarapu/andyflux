@@ -15,7 +15,6 @@ import {
     Chip,
     IconButton,
     Stack,
-    Tooltip,
     Paper,
     Dialog,
     DialogTitle,
@@ -27,7 +26,7 @@ import {
     MenuItem,
     Alert,
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, CloudUpload, Refresh, CloudDownload, Visibility } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Add as AddIcon, CloudUpload, CloudDownload, Visibility } from '@mui/icons-material';
 import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
@@ -325,44 +324,14 @@ export function TradeList() {
         setImportStatus(null);
     };
 
-    const handleSeed = async () => {
-        if (confirm('Clear all and seed 1000 trades?')) {
-            if (!user) return;
-            try {
-                const { generateTrades } = await import('../utils/generateTrades');
-                await generateTrades(user.uid, 1000);
-                window.location.reload();
-            } catch (e) {
-                console.error(e);
-            }
-        }
-    };
+
 
     return (
         <Box sx={{ height: 'calc(100vh - 120px)', width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
                 <Typography variant="h4" fontWeight="bold">Trade Log</Typography>
                 <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', width: { xs: '100%', md: 'auto' }, pb: { xs: 1, md: 0 } }}>
-                    <Tooltip title="Clear & Seed 5 Test Trades">
-                        <Button
-                            variant="outlined"
-                            color="warning"
-                            onClick={async () => {
-                                if (!user) return;
-                                const { generateTestTrades } = await import('../utils/generateTestTrades');
-                                await generateTestTrades(user.uid);
-                                window.location.reload(); // Reload to refresh count
-                            }}
-                        >
-                            Test 5
-                        </Button>
-                    </Tooltip>
 
-                    <Tooltip title="Seed 1000 Trades">
-                        <IconButton onClick={handleSeed} color="secondary">
-                            <Refresh />
-                        </IconButton>
-                    </Tooltip>
 
                     <Button
                         variant="outlined"

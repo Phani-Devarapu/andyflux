@@ -144,20 +144,7 @@ export function Dashboard() {
                     >
                         Log First Trade
                     </Button>
-                    <Button
-                        variant="outlined"
-                        size="large"
-                        color="warning"
-                        onClick={async () => {
-                            if (!user) return;
-                            const { generateTestTrades } = await import('../utils/generateTestTrades');
-                            await generateTestTrades(user.uid, selectedAccount);
-                            window.location.reload();
-                        }}
-                        sx={{ px: 4, py: 1.5 }}
-                    >
-                        Generate Test Data
-                    </Button>
+
                 </Stack>
             </Box>
         );
