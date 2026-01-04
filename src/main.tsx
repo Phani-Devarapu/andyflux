@@ -6,6 +6,8 @@ import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext'
 import { syncService } from './services/SyncService'
 import { expenseSyncService } from './services/ExpenseSyncService'
+import { goalSyncService } from './services/GoalSyncService'
+import { documentSyncService } from './services/DocumentSyncService'
 
 import { GlobalErrorBoundary } from './components/GlobalErrorBoundary'
 
@@ -14,6 +16,8 @@ import { MarketDataProvider } from './context/MarketDataContext'
 // Initialize Cloud Sync
 syncService.init();
 expenseSyncService.init();
+goalSyncService.init();
+documentSyncService.init();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
