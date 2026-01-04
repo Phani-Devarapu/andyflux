@@ -69,6 +69,26 @@ export function Sidebar({ onClose }: SidebarProps) {
         onClose?.();
     };
 
+    // Filter menu items based on selected account
+    const filteredItems = MENU_ITEMS.filter(item => {
+        // If Personal account, ONLY show Expenses (and maybe Dashboard/Settings?)
+        // User asked: "in tfsa and fhsa we dont need expense manger we can remove them"
+        // Implicitly: In Personal, we might not need Trade Log etc.
+        // For now, let's just implement the EXCLUSION rule to be safe/minimal.
+
+        if (selectedAccount === 'PERSONAL') {
+            // In Personal mode, show everything OR just Expenses?
+            // "we have it in personal" -> likely wants Expenses ONLY in Personal, and NOT in others.
+            // Let's hide Trade Log, Add Trade, Ticker/Strategy Analytics for Personal?
+            // User didn't explicitly ask to hide Trades in Personal, but it makes sense.
+            // Let's stick to the specific request first: Remove Expenses from TFSA/FHSA.
+            return true;
+        } else {
+            // In TFSA/FHSA/Non-Reg
+            return item.path !== '/expenses';
+        }
+    });
+
     return (
         <>
             <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
@@ -148,7 +168,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                 {/* Navigation Items (Scrollable Area) */}
                 <Box sx={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                     <List sx={{ px: 2 }}>
-                        {MENU_ITEMS.map((item) => {
+                        {filteredItems.map((item) => {
                             const Icon = item.icon;
                             const active = location.pathname === item.path;
                             return (
