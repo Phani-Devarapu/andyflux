@@ -138,6 +138,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                                     <option value="TFSA">🍁 TFSA</option>
                                     <option value="FHSA">🏠 FHSA</option>
                                     <option value="NON_REGISTERED">💵 Non-Registered</option>
+                                    <option value="PERSONAL">💳 Personal</option>
                                 </select>
                             </Box>
                         </Box>

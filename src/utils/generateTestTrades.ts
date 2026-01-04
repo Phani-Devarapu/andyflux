@@ -2,7 +2,9 @@ import { db } from '../db/db';
 import type { Trade, TradeSide } from '../types/trade';
 import { calculatePnL, calculatePnLPercent, calculateRiskReward } from './calculations';
 
-export const generateTestTrades = async (userId: string, accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED' = 'TFSA') => {
+import { type AccountType } from '../context/AccountContext';
+
+export const generateTestTrades = async (userId: string, accountId: AccountType = 'TFSA') => {
     // Clear existing trades for this user and account
     await db.trades.where('[userId+accountId]').equals([userId, accountId]).delete();
 

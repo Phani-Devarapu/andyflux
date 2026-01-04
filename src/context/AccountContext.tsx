@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-export type AccountType = 'TFSA' | 'FHSA' | 'NON_REGISTERED';
+export type AccountType = 'TFSA' | 'FHSA' | 'NON_REGISTERED' | 'PERSONAL';
 
 interface AccountContextType {
     selectedAccount: AccountType;

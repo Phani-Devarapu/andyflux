@@ -63,10 +63,12 @@ export const importFromJson = async (file: File, userId: string) => {
     });
 };
 
+import { type AccountType } from '../context/AccountContext';
+
 export const importFromCsv = async (
     file: File,
     broker: BrokerName | 'auto' = 'auto',
-    accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED' = 'TFSA',
+    accountId: AccountType = 'TFSA',
     userId: string
 ): Promise<{ success: number; failed: number; errors: string[] }> => {
     return new Promise((resolve, reject) => {

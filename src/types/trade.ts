@@ -3,10 +3,12 @@ export type TradeSide = 'Buy' | 'Sell';
 export type TradeStatus = 'Open' | 'Closed';
 export type WinLoss = 'Win' | 'Loss' | 'Breakeven' | 'Open';
 
+import { type AccountType } from '../context/AccountContext';
+
 export interface Trade {
     id?: number;
     userId: string;
-    accountId: 'TFSA' | 'FHSA' | 'NON_REGISTERED';
+    accountId: AccountType;
     date: Date;
     symbol: string;
     type: TradeType;
