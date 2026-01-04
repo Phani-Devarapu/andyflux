@@ -16,7 +16,7 @@ syncService.init();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
-      <BrowserRouter basename="/andyflux">
+      <BrowserRouter>
         <AuthProvider>
           <MarketDataProvider>
             <App />
