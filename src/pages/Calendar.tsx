@@ -1,6 +1,7 @@
 import { useState, forwardRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
+import { expenseDb } from '../db/expenseDb';
 import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
@@ -24,6 +25,8 @@ import {
     CardActionArea
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
+import { DEFAULT_EXPENSE_CATEGORIES } from '../types/expenseTypes';
+import * as LucideIcons from 'lucide-react';
 
 const Transition = forwardRef(function Transition(
     props: TransitionProps & {
@@ -34,15 +37,30 @@ const Transition = forwardRef(function Transition(
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
+// Helper to render Lucide icon by name
+const ExpenseIcon = ({ name, color, size = 20 }: { name: string, color: string, size?: number }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const Icon = (LucideIcons as any)[name] || LucideIcons.DollarSign;
+    return <Icon size={size} color={color} />;
+};
+
 export function Calendar() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const { selectedAccount } = useAccount();
     const { user } = useAuth();
     const theme = useTheme();
+
+    // Fetch Trades
     const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user) return [];
+        if (!selectedAccount || !user || selectedAccount === 'PERSONAL') return [];
         return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
+    }, [selectedAccount, user]);
+
+    // Fetch Expenses (Personal Account)
+    const expenses = useLiveQuery(async () => {
+        if (!selectedAccount || !user || selectedAccount !== 'PERSONAL') return [];
+        return await expenseDb.expenses.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
     }, [selectedAccount, user]);
 
     const monthStart = startOfMonth(currentMonth);
@@ -68,6 +86,16 @@ export function Calendar() {
         return { pnl, count, wins, losses, invested, trades: daysTrades };
     };
 
+    // Expense Stats Helper
+    const getExpenseDayStats = (date: Date) => {
+        if (!expenses) return { totalSpent: 0, count: 0, items: [] };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dayExpenses = expenses.filter((e: any) => isSameDay(new Date(e.date), date));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const totalSpent = dayExpenses.reduce((acc: number, e: any) => acc + e.amount, 0);
+        return { totalSpent, count: dayExpenses.length, items: dayExpenses };
+    };
+
     // ... (rest of code)
 
 
@@ -76,16 +104,38 @@ export function Calendar() {
     // Or just fixed buckets for now.
 
 
-    const monthlyPnL = trades
-        ? trades
-            .filter(t => {
-                const d = new Date(t.date);
-                return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
-            })
-            .reduce((acc, t) => acc + (t.pnl || 0), 0)
-        : 0;
+    const selectedDayData = selectedDate ? (selectedAccount === 'PERSONAL' ? getExpenseDayStats(selectedDate) : getDayStats(selectedDate)) : null;
 
-    const selectedDayStats = selectedDate ? getDayStats(selectedDate) : null;
+    // Header Stats
+    let headerStatLabel = '';
+    let headerStatValue = '';
+    let headerStatColor: 'success' | 'error' | 'default' | 'primary' | 'secondary' | 'info' | 'warning' = 'default';
+
+    if (selectedAccount === 'PERSONAL') {
+        const monthlySpent = expenses
+            ? expenses
+                .filter(e => {
+                    const d = new Date(e.date);
+                    return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+                })
+                .reduce((acc, e) => acc + e.amount, 0)
+            : 0;
+        headerStatLabel = 'Monthly Spent: ';
+        headerStatValue = formatCurrency(monthlySpent);
+        headerStatColor = 'warning';
+    } else {
+        const monthlyPnL = trades
+            ? trades
+                .filter(t => {
+                    const d = new Date(t.date);
+                    return d.getMonth() === currentMonth.getMonth() && d.getFullYear() === currentMonth.getFullYear();
+                })
+                .reduce((acc, t) => acc + (t.pnl || 0), 0)
+            : 0;
+        headerStatLabel = 'Monthly P/L: ';
+        headerStatValue = formatCurrency(monthlyPnL);
+        headerStatColor = monthlyPnL >= 0 ? 'success' : 'error';
+    }
 
     return (
         <Box sx={{ animation: 'fade-in 0.5s', '@keyframes fade-in': { from: { opacity: 0 }, to: { opacity: 1 } } }}>
@@ -118,15 +168,15 @@ export function Calendar() {
                             mb: 1
                         }}
                     >
-                        Trading Journal
+                        {selectedAccount === 'PERSONAL' ? 'Expense Calendar' : 'Trading Journal'}
                     </Typography>
                     <Stack direction="row" spacing={2} alignItems="center">
                         <Typography variant="subtitle1" color="text.secondary" fontWeight="medium">
-                            Consistency is Key 🔑
+                            {selectedAccount === 'PERSONAL' ? 'Track your spending habits 💸' : 'Consistency is Key 🔑'}
                         </Typography>
                         <Chip
-                            label={`Monthly P/L: ${formatCurrency(monthlyPnL)}`}
-                            color={monthlyPnL >= 0 ? 'success' : 'error'}
+                            label={`${headerStatLabel}${headerStatValue}`}
+                            color={headerStatColor}
                             variant="outlined"
                             sx={{ fontWeight: 'bold', fontSize: '1rem', bgcolor: 'background.paper' }}
                         />
@@ -177,13 +227,67 @@ export function Calendar() {
 
                     {/* Days */}
                     {daysInMonth.map(day => {
-                        const { pnl, count, wins, losses, invested } = getDayStats(day);
+                        let count = 0;
+                        let content = null;
                         const today = isToday(day);
                         const isLight = theme.palette.mode === 'light';
 
-                        // Simplified Visuals - Standard Calendar Look
+                        // Default styles
                         const borderColor = today ? theme.palette.primary.main : (isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)');
                         const bgcolor = isLight ? '#ffffff' : '#1e293b';
+
+                        if (selectedAccount === 'PERSONAL') {
+                            const stats = getExpenseDayStats(day);
+                            count = stats.count;
+                            if (count > 0) {
+                                content = (
+                                    <Box sx={{ width: '100%' }}>
+                                        <Typography
+                                            variant="body1"
+                                            fontWeight="bold"
+                                            color="warning.main"
+                                            align="center"
+                                            sx={{ my: 1 }}
+                                        >
+                                            {formatCurrency(stats.totalSpent)}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                            <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                                                {count} {count === 1 ? 'Item' : 'Items'}
+                                            </Typography>
+                                        </Box>
+                                    </Box>
+                                );
+                            }
+                        } else {
+                            const stats = getDayStats(day);
+                            count = stats.count;
+                            if (count > 0) {
+                                content = (
+                                    <Box sx={{ width: '100%' }}>
+                                        <Typography
+                                            variant="body1"
+                                            fontWeight="bold"
+                                            color={stats.pnl !== 0 ? (stats.pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
+                                            align="center"
+                                            sx={{ my: 1 }}
+                                        >
+                                            {formatCurrency(stats.pnl !== 0 ? stats.pnl : stats.invested)}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                                                {count} {count === 1 ? 'Trade' : 'Trades'}
+                                            </Typography>
+                                            {/* Small dots for wins/losses */}
+                                            <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                                {stats.wins > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />}
+                                                {stats.losses > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />}
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                );
+                            }
+                        }
 
                         return (
                             <Paper
@@ -194,7 +298,7 @@ export function Calendar() {
                                     p: 1.5,
                                     borderRadius: 3,
                                     bgcolor: count > 0 ? bgcolor : (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.4)'),
-                                    borderColor: today ? theme.palette.info.main : borderColor,
+                                    borderColor: today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'info.main') : borderColor,
                                     display: 'flex',
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
@@ -210,37 +314,12 @@ export function Calendar() {
                                 }}
                             >
                                 <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Typography variant="body2" fontWeight={today ? "900" : "medium"} color={today ? 'primary.main' : 'text.secondary'}>
+                                    <Typography variant="body2" fontWeight={today ? "900" : "medium"} color={today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'primary.main') : 'text.secondary'}>
                                         {format(day, 'd')}
                                     </Typography>
-                                    {count > 0 && (
-                                        <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                            {wins > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />}
-                                            {losses > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />}
-                                        </Box>
-                                    )}
                                 </Box>
 
-                                {count > 0 ? (
-                                    <Box sx={{ width: '100%' }}>
-                                        <Typography
-                                            variant="body1"
-                                            fontWeight="bold"
-                                            color={pnl !== 0 ? (pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
-                                            align="center"
-                                            sx={{ my: 1 }}
-                                        >
-                                            {formatCurrency(pnl !== 0 ? pnl : invested)}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight="medium">
-                                                {count} {count === 1 ? 'Trade' : 'Trades'}
-                                            </Typography>
-                                        </Box>
-                                    </Box>
-                                ) : (
-                                    <Box sx={{ flexGrow: 1 }} />
-                                )}
+                                {count > 0 ? content : <Box sx={{ flexGrow: 1 }} />}
                             </Paper>
                         );
                     })}
@@ -248,7 +327,7 @@ export function Calendar() {
             </Paper>
 
             {/* Contribution Heatmap */}
-            {trades && <ContributionGraph trades={trades} />}
+            {selectedAccount !== 'PERSONAL' && trades && <ContributionGraph trades={trades} />}
 
             {/* Premium Details Dialog */}
             <Dialog
@@ -267,7 +346,7 @@ export function Calendar() {
                     }
                 }}
             >
-                {selectedDate && selectedDayStats && (
+                {selectedDate && selectedDayData && (
                     <>
                         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 3, pb: 2 }}>
                             <Box>
@@ -276,13 +355,15 @@ export function Calendar() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                                     <Typography variant="body2" color="text.secondary" fontWeight="medium">
-                                        Total Daily P/L:
+                                        {selectedAccount === 'PERSONAL' ? 'Total Spent:' : 'Total Daily P/L:'}
                                     </Typography>
                                     <Chip
-                                        label={formatCurrency(selectedDayStats.pnl)}
-                                        color={selectedDayStats.pnl >= 0 ? 'success' : 'error'}
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        label={formatCurrency((selectedAccount === 'PERSONAL' ? (selectedDayData as any).totalSpent : (selectedDayData as any).pnl))}
+                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                        color={selectedAccount === 'PERSONAL' ? 'warning' : ((selectedDayData as any).pnl >= 0 ? 'success' : 'error')}
                                         size="small"
-                                        variant="filled" // Fixed variant
+                                        variant="filled"
                                         sx={{ fontWeight: 'bold' }}
                                     />
                                 </Stack>
@@ -294,76 +375,122 @@ export function Calendar() {
 
                         <DialogContent sx={{ p: 3, pt: 0 }}>
                             <Stack spacing={2} sx={{ mt: 2 }}>
-                                {selectedDayStats.trades.map((trade) => (
-                                    <Paper
-                                        key={trade.id}
-                                        elevation={0}
-                                        sx={{
-                                            p: 0,
-                                            border: '1px solid',
-                                            borderColor: 'divider',
-                                            borderRadius: 3,
-                                            overflow: 'hidden',
-                                            transition: 'transform 0.2s',
-                                            '&:hover': {
-                                                borderColor: 'primary.main',
-                                                transform: 'translateY(-2px)',
-                                                boxShadow: 2
-                                            }
-                                        }}
-                                    >
-                                        <CardActionArea component={Link} to={`/edit/${trade.id}`} sx={{ p: 2 }}>
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box
-                                                        sx={{
-                                                            width: 4,
-                                                            height: 24,
-                                                            bgcolor: (trade.pnl || 0) >= 0 ? 'success.main' : 'error.main',
-                                                            borderRadius: 1
-                                                        }}
-                                                    />
-                                                    <Typography variant="h6" fontWeight="bold">
-                                                        {formatSymbolForDisplay(trade.symbol, trade.type)}
-                                                    </Typography>
-                                                    <Chip
-                                                        label={trade.side}
-                                                        size="small"
-                                                        color={trade.side === 'Buy' ? 'success' : 'error'}
-                                                        variant="outlined"
-                                                        sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold' }}
-                                                    />
-                                                </Stack>
-                                                <Box sx={{ textAlign: 'right' }}>
-                                                    <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                                        {(trade.pnl && trade.pnl !== 0) ? 'REALIZED P/L' : 'INVESTED'}
-                                                    </Typography>
-                                                    <Typography
-                                                        variant="h6"
-                                                        fontWeight="900"
-                                                        color={(trade.pnl && trade.pnl !== 0)
-                                                            ? (trade.pnl >= 0 ? 'success.main' : 'error.main')
-                                                            : 'text.primary'}
-                                                    >
-                                                        {(trade.pnl && trade.pnl !== 0)
-                                                            ? formatCurrency(trade.pnl)
-                                                            : formatCurrency((trade.entryPrice * trade.quantity) + (trade.fees || 0))}
-                                                    </Typography>
+                                {selectedAccount === 'PERSONAL' ? (
+                                    // EXPENSE LIST
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    (selectedDayData as any).items.map((expense: any) => {
+                                        const category = DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === expense.category);
+                                        return (
+                                            <Paper
+                                                key={expense.id}
+                                                elevation={0}
+                                                sx={{
+                                                    p: 2,
+                                                    border: '1px solid',
+                                                    borderColor: 'divider',
+                                                    borderRadius: 3,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 2
+                                                }}
+                                            >
+                                                <Box sx={{
+                                                    p: 1.5,
+                                                    borderRadius: '50%',
+                                                    bgcolor: (category?.color || '#9ca3af') + '20',
+                                                    color: category?.color || '#9ca3af',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center'
+                                                }}>
+                                                    <ExpenseIcon name={category?.icon || 'DollarSign'} color={category?.color || '#9ca3af'} size={24} />
                                                 </Box>
-                                            </Box>
-
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2 }}>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    {trade.strategy || 'No Strategy'}
+                                                <Box sx={{ flexGrow: 1 }}>
+                                                    <Typography variant="body1" fontWeight="bold">{category?.name || expense.category}</Typography>
+                                                    {expense.description && (
+                                                        <Typography variant="caption" color="text.secondary">{expense.description}</Typography>
+                                                    )}
+                                                </Box>
+                                                <Typography variant="h6" fontWeight="bold">
+                                                    {formatCurrency(expense.amount)}
                                                 </Typography>
-                                                <Stack direction="row" spacing={0.5} alignItems="center" color="primary.main">
-                                                    <Typography variant="caption" fontWeight="bold">DETAILS</Typography>
-                                                    <ArrowForward fontSize="small" sx={{ fontSize: 14 }} />
-                                                </Stack>
-                                            </Box>
-                                        </CardActionArea>
-                                    </Paper>
-                                ))}
+                                            </Paper>
+                                        );
+                                    })
+                                ) : (
+                                    // TRADE LIST
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                    (selectedDayData as any).trades.map((trade: any) => (
+                                        <Paper
+                                            key={trade.id}
+                                            elevation={0}
+                                            sx={{
+                                                p: 0,
+                                                border: '1px solid',
+                                                borderColor: 'divider',
+                                                borderRadius: 3,
+                                                overflow: 'hidden',
+                                                transition: 'transform 0.2s',
+                                                '&:hover': {
+                                                    borderColor: 'primary.main',
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: 2
+                                                }
+                                            }}
+                                        >
+                                            <CardActionArea component={Link} to={`/edit/${trade.id}`} sx={{ p: 2 }}>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                                                    <Stack direction="row" spacing={1.5} alignItems="center">
+                                                        <Box
+                                                            sx={{
+                                                                width: 4,
+                                                                height: 24,
+                                                                bgcolor: (trade.pnl || 0) >= 0 ? 'success.main' : 'error.main',
+                                                                borderRadius: 1
+                                                            }}
+                                                        />
+                                                        <Typography variant="h6" fontWeight="bold">
+                                                            {formatSymbolForDisplay(trade.symbol, trade.type)}
+                                                        </Typography>
+                                                        <Chip
+                                                            label={trade.side}
+                                                            size="small"
+                                                            color={trade.side === 'Buy' ? 'success' : 'error'}
+                                                            variant="outlined"
+                                                            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 'bold' }}
+                                                        />
+                                                    </Stack>
+                                                    <Box sx={{ textAlign: 'right' }}>
+                                                        <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                                                            {(trade.pnl && trade.pnl !== 0) ? 'REALIZED P/L' : 'INVESTED'}
+                                                        </Typography>
+                                                        <Typography
+                                                            variant="h6"
+                                                            fontWeight="900"
+                                                            color={(trade.pnl && trade.pnl !== 0)
+                                                                ? (trade.pnl >= 0 ? 'success.main' : 'error.main')
+                                                                : 'text.primary'}
+                                                        >
+                                                            {(trade.pnl && trade.pnl !== 0)
+                                                                ? formatCurrency(trade.pnl)
+                                                                : formatCurrency((trade.entryPrice * trade.quantity) + (trade.fees || 0))}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
+
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pl: 2 }}>
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {trade.strategy || 'No Strategy'}
+                                                    </Typography>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" color="primary.main">
+                                                        <Typography variant="caption" fontWeight="bold">DETAILS</Typography>
+                                                        <ArrowForward fontSize="small" sx={{ fontSize: 14 }} />
+                                                    </Stack>
+                                                </Box>
+                                            </CardActionArea>
+                                        </Paper>
+                                    ))
+                                )}
                             </Stack>
                         </DialogContent>
                     </>

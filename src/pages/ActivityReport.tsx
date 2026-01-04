@@ -62,6 +62,8 @@ import { formatCurrency } from '../utils/calculations';
 import { documentService } from '../services/DocumentService';
 import { importFromCsv } from '../utils/importExport';
 import type { StoredDocument } from '../types/document';
+import { expenseDb } from '../db/expenseDb';
+import { DEFAULT_EXPENSE_CATEGORIES } from '../types/expenseTypes';
 
 
 // Register ChartJS components
@@ -139,6 +141,15 @@ export function ActivityReport() {
             .equals([user.uid, selectedAccount])
             .reverse()
             .sortBy('createdAt');
+    }, [user, selectedAccount]);
+
+    // Fetch Expenses (for Personal Account)
+    const rawExpenses = useLiveQuery(async () => {
+        if (!user || !selectedAccount || selectedAccount !== 'PERSONAL') return [];
+        return await expenseDb.expenses
+            .where('[userId+accountId]')
+            .equals([user.uid, selectedAccount])
+            .toArray();
     }, [user, selectedAccount]);
 
     // Filter Trades by Period
@@ -356,6 +367,74 @@ export function ActivityReport() {
         };
     }, [strategyStats]);
 
+    // --- EXPENSE ANALYTICS (Personal Account) ---
+
+    // Filter Expenses by Period
+    const filteredExpenses = useMemo(() => {
+        if (!rawExpenses) return [];
+        return rawExpenses.filter(e => {
+            const d = e.date;
+            if (d.getFullYear() !== year) return false;
+            if (periodType === 'month' && d.getMonth() + 1 !== selectedPeriod) return false;
+            if (periodType === 'week' && getWeekNumber(d) !== selectedPeriod) return false;
+            return true;
+        });
+    }, [rawExpenses, year, periodType, selectedPeriod]);
+
+    // Expense Summary Stats
+    const expenseSummary = useMemo(() => {
+        const totalSpent = filteredExpenses.reduce((acc, e) => acc + e.amount, 0);
+        const totalTx = filteredExpenses.length;
+        const avgTx = totalTx > 0 ? totalSpent / totalTx : 0;
+        return { totalSpent, totalTx, avgTx };
+    }, [filteredExpenses]);
+
+    // Expense Category Breakdown (Pie Chart)
+    const expenseCategoryData = useMemo(() => {
+        const categoryMap = new Map<string, number>();
+        filteredExpenses.forEach(e => {
+            const current = categoryMap.get(e.category) || 0;
+            categoryMap.set(e.category, current + e.amount);
+        });
+
+        const sortedIds = Array.from(categoryMap.keys()).sort((a, b) => (categoryMap.get(b) || 0) - (categoryMap.get(a) || 0));
+
+        const labels = sortedIds.map(id => DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === id)?.name || id);
+        const data = sortedIds.map(id => categoryMap.get(id) || 0);
+        const bgColors = sortedIds.map(id => DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === id)?.color || '#9ca3af');
+
+        return {
+            labels,
+            datasets: [{
+                data,
+                backgroundColor: bgColors,
+                borderWidth: 0
+            }]
+        };
+    }, [filteredExpenses]);
+
+    // Expense Monthly Trend (Bar Chart) - For the selected year
+    const expenseTrendData = useMemo(() => {
+        if (!rawExpenses) return null;
+
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const monthlyData = new Array(12).fill(0);
+
+        rawExpenses.filter(e => e.date.getFullYear() === year).forEach(e => {
+            monthlyData[e.date.getMonth()] += e.amount;
+        });
+
+        return {
+            labels: months,
+            datasets: [{
+                label: 'Monthly Spending',
+                data: monthlyData,
+                backgroundColor: '#EF4444',
+                borderRadius: 4
+            }]
+        };
+    }, [rawExpenses, year]);
+
     // Handlers
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files?.[0] || !user || !selectedAccount) return;
@@ -479,151 +558,247 @@ export function ActivityReport() {
             </Box>
 
             {/* Summary Cards */}
-            <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 3 }}>
-                    <Card sx={{ bgcolor: 'primary.soft', border: '1px solid', borderColor: 'primary.main', height: '100%' }}>
-                        <CardContent>
-                            <Stack direction="row" alignItems="center" gap={2}>
-                                <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'primary.main', color: 'white' }}>
-                                    <DollarSign size={24} />
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Total Invested</Typography>
-                                    <Typography variant="h5" fontWeight="bold">{formatCurrency(summary.totalInvested)}</Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
+            {selectedAccount === 'PERSONAL' ? (
+                // --- EXPENSE SUMMARY CARDS ---
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Card sx={{ bgcolor: 'secondary.soft', border: '1px solid', borderColor: 'secondary.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'secondary.main', color: 'white' }}>
+                                        <DollarSign size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Total Spent</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{formatCurrency(expenseSummary.totalSpent)}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Card sx={{ bgcolor: 'warning.soft', border: '1px solid', borderColor: 'warning.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'warning.main', color: 'white' }}>
+                                        <TrendingUp size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Transactions</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{expenseSummary.totalTx}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Card sx={{ bgcolor: 'info.soft', border: '1px solid', borderColor: 'info.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'info.main', color: 'white' }}>
+                                        <BarChart3 size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Avg. Transaction</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{formatCurrency(expenseSummary.avgTx)}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
-                    <Card sx={{ bgcolor: 'emerald.soft', border: '1px solid', borderColor: 'emerald.main', height: '100%' }}>
-                        <CardContent>
-                            <Stack direction="row" alignItems="center" gap={2}>
-                                <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'emerald.main', color: 'white' }}>
-                                    <TrendingUp size={24} />
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Transactions</Typography>
-                                    <Typography variant="h5" fontWeight="bold">{summary.totalTx}</Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
+            ) : (
+                // --- EXISTING TRADE SUMMARY CARDS ---
+                <Grid container spacing={3}>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Card sx={{ bgcolor: 'primary.soft', border: '1px solid', borderColor: 'primary.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'primary.main', color: 'white' }}>
+                                        <DollarSign size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Total Invested</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{formatCurrency(summary.totalInvested)}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Card sx={{ bgcolor: 'emerald.soft', border: '1px solid', borderColor: 'emerald.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'emerald.main', color: 'white' }}>
+                                        <TrendingUp size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Transactions</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{summary.totalTx}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Card sx={{ bgcolor: 'orange.soft', border: '1px solid', borderColor: 'orange.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'orange.main', color: 'white' }}>
+                                        <DollarSign size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Total Fees Paid</Typography>
+                                        <Typography variant="h5" fontWeight="bold">{formatCurrency(summary.totalFees)}</Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 3 }}>
+                        <Card sx={{ bgcolor: 'indigo.soft', border: '1px solid', borderColor: 'indigo.main', height: '100%' }}>
+                            <CardContent>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'indigo.main', color: 'white' }}>
+                                        <TrendingUp size={24} />
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="body2" color="text.secondary">Unrealized PnL</Typography>
+                                        <Typography
+                                            variant="h5"
+                                            fontWeight="bold"
+                                            color={summary.unrealizedPnL >= 0 ? 'success.main' : 'error.main'}
+                                        >
+                                            {summary.unrealizedPnL > 0 ? '+' : ''}{formatCurrency(summary.unrealizedPnL)}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </CardContent>
+                        </Card>
+                    </Grid>
                 </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
-                    <Card sx={{ bgcolor: 'orange.soft', border: '1px solid', borderColor: 'orange.main', height: '100%' }}>
-                        <CardContent>
-                            <Stack direction="row" alignItems="center" gap={2}>
-                                <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'orange.main', color: 'white' }}>
-                                    <DollarSign size={24} />
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Total Fees Paid</Typography>
-                                    <Typography variant="h5" fontWeight="bold">{formatCurrency(summary.totalFees)}</Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
-                </Grid>
-                <Grid size={{ xs: 12, md: 3 }}>
-                    <Card sx={{ bgcolor: 'indigo.soft', border: '1px solid', borderColor: 'indigo.main', height: '100%' }}>
-                        <CardContent>
-                            <Stack direction="row" alignItems="center" gap={2}>
-                                <Box sx={{ p: 1.5, borderRadius: '50%', bgcolor: 'indigo.main', color: 'white' }}>
-                                    <TrendingUp size={24} />
-                                </Box>
-                                <Box>
-                                    <Typography variant="body2" color="text.secondary">Unrealized PnL</Typography>
-                                    <Typography
-                                        variant="h5"
-                                        fontWeight="bold"
-                                        color={summary.unrealizedPnL >= 0 ? 'success.main' : 'error.main'}
-                                    >
-                                        {summary.unrealizedPnL > 0 ? '+' : ''}{formatCurrency(summary.unrealizedPnL)}
-                                    </Typography>
-                                </Box>
-                            </Stack>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+            )}
 
             {/* Main Content Area: Split View */}
             <Grid container spacing={3} sx={{ flexGrow: 1, minHeight: 0 }}>
                 {/* Strategy Analytics Section */}
-                <Grid size={{ xs: 12 }}>
-                    <Paper sx={{ p: 3, mb: 3 }}>
-                        <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 3 }}>
-                            <Box sx={{ p: 1, bgcolor: 'indigo.soft', borderRadius: '50%', color: 'indigo.main' }}>
-                                <BarChart3 size={20} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h6" fontWeight="bold">Strategy Performance</Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Analyze which setups are working best (Net PnL vs Win Rate)
-                                </Typography>
-                            </Box>
-                        </Stack>
+                {/* Main Content Area: Split View */}
+                {selectedAccount === 'PERSONAL' ? (
+                    // --- EXPENSE CHARTS ---
+                    <Grid size={{ xs: 12 }}>
+                        <Grid container spacing={3}>
+                            {/* Monthly Spending Trend */}
+                            <Grid size={{ xs: 12, md: 8 }}>
+                                <Paper sx={{ p: 3, mb: 3 }}>
+                                    <Typography variant="h6" fontWeight="bold" gutterBottom>Monthly Spending Trend</Typography>
+                                    <Box sx={{ height: 350 }}>
+                                        {expenseTrendData && (
+                                            <Bar
+                                                data={expenseTrendData}
+                                                options={{
+                                                    responsive: true,
+                                                    scales: { y: { beginAtZero: true } }
+                                                }}
+                                            />
+                                        )}
+                                    </Box>
+                                </Paper>
+                            </Grid>
 
-                        {strategyStats.length > 0 ? (
-                            <Box sx={{ height: 350 }}>
-                                <Chart
-                                    type='bar'
-                                    data={strategyChartData}
-                                    options={{
-                                        responsive: true,
-                                        interaction: {
-                                            mode: 'index' as const,
-                                            intersect: false,
-                                        },
-                                        plugins: {
-                                            legend: { position: 'top' as const },
-                                            tooltip: {
-                                                callbacks: {
-                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                    label: function (context: any) {
-                                                        const label = context.dataset.label || '';
-                                                        const value = context.parsed.y;
-                                                        if (context.dataset.yAxisID === 'y1') {
-                                                            return `${label}: ${value.toFixed(1)}%`;
+                            {/* Category Breakdown */}
+                            <Grid size={{ xs: 12, md: 4 }}>
+                                <Paper sx={{ p: 3, mb: 3 }}>
+                                    <Typography variant="h6" fontWeight="bold" gutterBottom>Category Breakdown</Typography>
+                                    <Box sx={{ height: 350, display: 'flex', justifyContent: 'center' }}>
+                                        <Doughnut
+                                            data={expenseCategoryData}
+                                            options={{
+                                                responsive: true,
+                                                maintainAspectRatio: false,
+                                                plugins: { legend: { position: 'right' } }
+                                            }}
+                                        />
+                                    </Box>
+                                </Paper>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                ) : (
+                    // --- EXISTING STRATEGY ANALYTICS ---
+                    <Grid size={{ xs: 12 }}>
+                        <Paper sx={{ p: 3, mb: 3 }}>
+                            <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 3 }}>
+                                <Box sx={{ p: 1, bgcolor: 'indigo.soft', borderRadius: '50%', color: 'indigo.main' }}>
+                                    <BarChart3 size={20} />
+                                </Box>
+                                <Box>
+                                    <Typography variant="h6" fontWeight="bold">Strategy Performance</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Analyze which setups are working best (Net PnL vs Win Rate)
+                                    </Typography>
+                                </Box>
+                            </Stack>
+
+                            {strategyStats.length > 0 ? (
+                                <Box sx={{ height: 350 }}>
+                                    <Chart
+                                        type='bar'
+                                        data={strategyChartData}
+                                        options={{
+                                            responsive: true,
+                                            interaction: {
+                                                mode: 'index' as const,
+                                                intersect: false,
+                                            },
+                                            plugins: {
+                                                legend: { position: 'top' as const },
+                                                tooltip: {
+                                                    callbacks: {
+                                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                        label: function (context: any) {
+                                                            const label = context.dataset.label || '';
+                                                            const value = context.parsed.y;
+                                                            if (context.dataset.yAxisID === 'y1') {
+                                                                return `${label}: ${value.toFixed(1)}%`;
+                                                            }
+                                                            return `${label}: ${formatCurrency(value)}`;
                                                         }
-                                                        return `${label}: ${formatCurrency(value)}`;
                                                     }
                                                 }
-                                            }
-                                        },
-                                        scales: {
-                                            y: {
-                                                type: 'linear' as const,
-                                                display: true,
-                                                position: 'left' as const,
-                                                title: { display: true, text: 'Net PnL ($)' },
-                                                grid: { display: true }
                                             },
-                                            y1: {
-                                                type: 'linear' as const,
-                                                display: true,
-                                                position: 'right' as const,
-                                                title: { display: true, text: 'Win Rate (%)' },
-                                                min: 0,
-                                                max: 100,
-                                                grid: { display: false }
-                                            },
-                                            x: {
-                                                grid: { display: false }
+                                            scales: {
+                                                y: {
+                                                    type: 'linear' as const,
+                                                    display: true,
+                                                    position: 'left' as const,
+                                                    title: { display: true, text: 'Net PnL ($)' },
+                                                    grid: { display: true }
+                                                },
+                                                y1: {
+                                                    type: 'linear' as const,
+                                                    display: true,
+                                                    position: 'right' as const,
+                                                    title: { display: true, text: 'Win Rate (%)' },
+                                                    min: 0,
+                                                    max: 100,
+                                                    grid: { display: false }
+                                                },
+                                                x: {
+                                                    grid: { display: false }
+                                                }
                                             }
-                                        }
-                                    }}
-                                />
-                            </Box>
-                        ) : (
-                            <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'background.default', borderRadius: 2 }}>
-                                <Typography>No strategy data available.</Typography>
-                                <Typography variant="caption">Tag your trades with a Strategy to see analytics here.</Typography>
-                            </Box>
-                        )}
-                    </Paper>
-                </Grid>
+                                        }}
+                                    />
+                                </Box>
+                            ) : (
+                                <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'background.default', borderRadius: 2 }}>
+                                    <Typography>No strategy data available.</Typography>
+                                    <Typography variant="caption">Tag your trades with a Strategy to see analytics here.</Typography>
+                                </Box>
+                            )}
+                        </Paper>
+                    </Grid>
+                )}
 
                 {/* Left: Documents Manager */}
                 <Grid size={{ xs: 12, md: 4 }}>
@@ -710,331 +885,397 @@ export function ActivityReport() {
                 {/* Right: Data Table */}
                 <Grid size={{ xs: 12, md: 8 }}>
                     <Paper sx={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                        <TableContainer sx={{ flexGrow: 1 }}>
-                            <Table stickyHeader size="small">
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell>
-                                            <TableSortLabel
-                                                active={sortConfig.key === 'symbol'}
-                                                direction={sortConfig.key === 'symbol' ? sortConfig.direction : 'asc'}
-                                                onClick={() => handleSort('symbol')}
-                                            >
-                                                Symbol
-                                            </TableSortLabel>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <TableSortLabel
-                                                active={sortConfig.key === 'count'}
-                                                direction={sortConfig.key === 'count' ? sortConfig.direction : 'asc'}
-                                                onClick={() => handleSort('count')}
-                                            >
-                                                Buys Count
-                                            </TableSortLabel>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <TableSortLabel
-                                                active={sortConfig.key === 'qtyAdded'}
-                                                direction={sortConfig.key === 'qtyAdded' ? sortConfig.direction : 'asc'}
-                                                onClick={() => handleSort('qtyAdded')}
-                                            >
-                                                Qty Added
-                                            </TableSortLabel>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <TableSortLabel
-                                                active={sortConfig.key === 'avgPrice'}
-                                                direction={sortConfig.key === 'avgPrice' ? sortConfig.direction : 'asc'}
-                                                onClick={() => handleSort('avgPrice')}
-                                            >
-                                                Avg Price
-                                            </TableSortLabel>
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <TableSortLabel
-                                                active={sortConfig.key === 'invested'}
-                                                direction={sortConfig.key === 'invested' ? sortConfig.direction : 'asc'}
-                                                onClick={() => handleSort('invested')}
-                                            >
-                                                Total Invested
-                                            </TableSortLabel>
-                                        </TableCell>
-                                        <TableCell align="right">Last Price</TableCell>
-                                        <TableCell align="right">PnL</TableCell>
-                                        <TableCell padding="checkbox"></TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {reportData.map((row) => {
-                                        const currentPrice = prices[row.symbol.toUpperCase()]?.price || 0;
-                                        const currentValue = currentPrice * row.qtyAdded;
-                                        const pnl = currentPrice ? (currentValue - row.invested) : 0;
-                                        return (
-                                            <TableRow
-                                                key={row.symbol}
-                                                hover
-                                                onClick={() => openDrillDown(row.symbol)}
-                                                sx={{ cursor: 'pointer' }}
-                                            >
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight="bold">
-                                                        {row.symbol}
+                        {selectedAccount === 'PERSONAL' ? (
+                            // --- EXPENSE TABLE ---
+                            <TableContainer sx={{ flexGrow: 1 }}>
+                                <Table stickyHeader size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>Category</TableCell>
+                                            <TableCell align="right">Transactions</TableCell>
+                                            <TableCell align="right">Total Spent</TableCell>
+                                            <TableCell align="right">% of Total</TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {(() => {
+                                            // Re-calculate category data for table rows
+                                            const categoryMap = new Map<string, { amount: number, count: number }>();
+                                            filteredExpenses.forEach(e => {
+                                                const current = categoryMap.get(e.category) || { amount: 0, count: 0 };
+                                                categoryMap.set(e.category, { amount: current.amount + e.amount, count: current.count + 1 });
+                                            });
+
+                                            const sortedIds = Array.from(categoryMap.keys()).sort((a, b) => (categoryMap.get(b)?.amount || 0) - (categoryMap.get(a)?.amount || 0));
+                                            const grandTotal = Array.from(categoryMap.values()).reduce((sum, v) => sum + v.amount, 0);
+
+                                            if (sortedIds.length === 0) {
+                                                return (
+                                                    <TableRow>
+                                                        <TableCell colSpan={4} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                                            No expenses found for this period.
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            }
+
+                                            return sortedIds.map(id => {
+                                                const data = categoryMap.get(id);
+                                                if (!data) return null;
+                                                const cat = DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === id);
+                                                const pct = grandTotal > 0 ? (data.amount / grandTotal) * 100 : 0;
+
+                                                return (
+                                                    <TableRow key={id} hover>
+                                                        <TableCell sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            {/* We could render the icon here if we had a mapping component, simpler to just use color dot */}
+                                                            <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cat?.color || '#9ca3af' }} />
+                                                            <Typography variant="body2" fontWeight="bold">{cat?.name || id}</Typography>
+                                                        </TableCell>
+                                                        <TableCell align="right">{data.count}</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 'bold' }}>{formatCurrency(data.amount)}</TableCell>
+                                                        <TableCell align="right">{pct.toFixed(1)}%</TableCell>
+                                                    </TableRow>
+                                                );
+                                            });
+                                        })()}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        ) : (
+                            // --- TRADE TABLE ---
+                            <TableContainer sx={{ flexGrow: 1 }}>
+                                <Table stickyHeader size="small">
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell>
+                                                <TableSortLabel
+                                                    active={sortConfig.key === 'symbol'}
+                                                    direction={sortConfig.key === 'symbol' ? sortConfig.direction : 'asc'}
+                                                    onClick={() => handleSort('symbol')}
+                                                >
+                                                    Symbol
+                                                </TableSortLabel>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <TableSortLabel
+                                                    active={sortConfig.key === 'count'}
+                                                    direction={sortConfig.key === 'count' ? sortConfig.direction : 'asc'}
+                                                    onClick={() => handleSort('count')}
+                                                >
+                                                    Buys Count
+                                                </TableSortLabel>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <TableSortLabel
+                                                    active={sortConfig.key === 'qtyAdded'}
+                                                    direction={sortConfig.key === 'qtyAdded' ? sortConfig.direction : 'asc'}
+                                                    onClick={() => handleSort('qtyAdded')}
+                                                >
+                                                    Qty Added
+                                                </TableSortLabel>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <TableSortLabel
+                                                    active={sortConfig.key === 'avgPrice'}
+                                                    direction={sortConfig.key === 'avgPrice' ? sortConfig.direction : 'asc'}
+                                                    onClick={() => handleSort('avgPrice')}
+                                                >
+                                                    Avg Price
+                                                </TableSortLabel>
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <TableSortLabel
+                                                    active={sortConfig.key === 'invested'}
+                                                    direction={sortConfig.key === 'invested' ? sortConfig.direction : 'asc'}
+                                                    onClick={() => handleSort('invested')}
+                                                >
+                                                    Total Invested
+                                                </TableSortLabel>
+                                            </TableCell>
+                                            <TableCell align="right">Last Price</TableCell>
+                                            <TableCell align="right">PnL</TableCell>
+                                            <TableCell padding="checkbox"></TableCell>
+                                        </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                        {reportData.map((row) => {
+                                            const currentPrice = prices[row.symbol.toUpperCase()]?.price || 0;
+                                            const currentValue = currentPrice * row.qtyAdded;
+                                            const pnl = currentPrice ? (currentValue - row.invested) : 0;
+                                            return (
+                                                <TableRow
+                                                    key={row.symbol}
+                                                    hover
+                                                    onClick={() => openDrillDown(row.symbol)}
+                                                    sx={{ cursor: 'pointer' }}
+                                                >
+                                                    <TableCell>
+                                                        <Typography variant="body2" fontWeight="bold">
+                                                            {row.symbol}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell align="right">{row.count}</TableCell>
+                                                    <TableCell align="right">
+                                                        <Chip label={row.qtyAdded.toFixed(4)} size="small" variant="outlined" />
+                                                    </TableCell>
+                                                    <TableCell align="right">{formatCurrency(row.avgPrice)}</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                                                        {formatCurrency(row.invested)}
+                                                    </TableCell>
+                                                    <TableCell align="right">
+                                                        {currentPrice ? formatCurrency(currentPrice) : '-'}
+                                                    </TableCell>
+                                                    <TableCell align="right" sx={{
+                                                        fontWeight: 'bold',
+                                                        color: pnl >= 0 ? 'success.main' : 'error.main'
+                                                    }}>
+                                                        {currentPrice ? formatCurrency(pnl) : '-'}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <ChevronRight size={16} className="text-gray-400" />
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })}
+                                        {reportData.length === 0 && (
+                                            <TableRow>
+                                                <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                                                    <Typography color="text.secondary">
+                                                        No purchases found for this period.
                                                     </Typography>
                                                 </TableCell>
-                                                <TableCell align="right">{row.count}</TableCell>
-                                                <TableCell align="right">
-                                                    <Chip label={row.qtyAdded.toFixed(4)} size="small" variant="outlined" />
-                                                </TableCell>
-                                                <TableCell align="right">{formatCurrency(row.avgPrice)}</TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
-                                                    {formatCurrency(row.invested)}
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    {currentPrice ? formatCurrency(currentPrice) : '-'}
-                                                </TableCell>
-                                                <TableCell align="right" sx={{
-                                                    fontWeight: 'bold',
-                                                    color: pnl >= 0 ? 'success.main' : 'error.main'
-                                                }}>
-                                                    {currentPrice ? formatCurrency(pnl) : '-'}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <ChevronRight size={16} className="text-gray-400" />
-                                                </TableCell>
                                             </TableRow>
-                                        )
-                                    })}
-                                    {reportData.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                                                <Typography color="text.secondary">
-                                                    No purchases found for this period.
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    </Paper>
-                </Grid>
-
-                {/* NEW: Charts Row (Split) */}
-                <Grid size={{ xs: 12, md: 8 }}>
-                    <Paper sx={{ p: 3, height: '100%' }}>
-                        <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 2 }}>
-                            <Box sx={{ p: 1, bgcolor: 'primary.soft', borderRadius: '50%', color: 'primary.main' }}>
-                                <BarChart3 size={20} />
-                            </Box>
-                            <Typography variant="h6" fontWeight="bold">Monthly Capital Allocation</Typography>
-                        </Stack>
-                        <Box sx={{ height: 350 }}>
-                            {chartData ? (
-                                <Bar options={chartOptions} data={chartData} />
-                            ) : (
-                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                                    <CircularProgress />
-                                </Box>
-                            )}
-                        </Box>
-                    </Paper>
-                </Grid>
-
-                <Grid size={{ xs: 12, md: 4 }}>
-                    <Paper sx={{ p: 3, height: '100%' }}>
-                        <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 2 }}>
-                            <Box sx={{ p: 1, bgcolor: 'warning.soft', borderRadius: '50%', color: 'warning.main' }}>
-                                <PieChart size={20} />
-                            </Box>
-                            <Typography variant="h6" fontWeight="bold">Allocation</Typography>
-                        </Stack>
-                        <Box sx={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {reportData.length > 0 ? (
-                                <Doughnut options={doughnutOptions} data={allocationData} />
-                            ) : (
-                                <Typography color="text.secondary">No data</Typography>
-                            )}
-                        </Box>
-                    </Paper>
-                </Grid>
-
-                {/* NEW: Ticker Analysis Section */}
-                <Grid size={{ xs: 12 }}>
-                    <Paper sx={{ p: 3 }}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-                            <Stack direction="row" alignItems="center" gap={2}>
-                                <Box sx={{ p: 1, bgcolor: 'secondary.soft', borderRadius: '50%', color: 'secondary.main' }}>
-                                    <TrendingUp size={20} />
-                                </Box>
-                                <Typography variant="h6" fontWeight="bold">Ticker Accumulation Analysis</Typography>
-                            </Stack>
-                            <Select
-                                size="small"
-                                displayEmpty
-                                value={drillDownSymbol || ''}
-                                onChange={(e) => setDrillDownSymbol(e.target.value)}
-                                sx={{ minWidth: 200 }}
-                            >
-                                <MenuItem value="" disabled>Select Ticker</MenuItem>
-                                {Array.from(new Set(rawTrades?.map(t => t.symbol))).sort().map(sym => (
-                                    <MenuItem key={sym} value={sym}>{sym}</MenuItem>
-                                ))}
-                            </Select>
-                        </Stack>
-
-                        {drillDownSymbol ? (
-                            <Box sx={{ height: 400 }}>
-                                {(() => {
-                                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                                    const symbolTrades = rawTrades?.filter(t => t.symbol === drillDownSymbol) || [];
-
-                                    // Calculate Data: Net Invested Capital (Active Holdings)
-                                    const monthlyGrowth: number[] = [];
-                                    const cumulativeTotal: number[] = [];
-
-                                    for (let i = 0; i < 12; i++) {
-                                        // Define end of this month
-                                        const monthEnd = new Date(year, i + 1, 0, 23, 59, 59); // Last second of the month
-
-                                        // Filter trades that were ACTIVE at the end of this month
-                                        // Criteria:
-                                        // 1. Entered on or before this month end
-                                        // 2. Status is Open OR (Status is Closed but Exit Date is AFTER this month end)
-                                        const activeTrades = symbolTrades.filter(t => {
-                                            const entryDate = new Date(t.date);
-                                            const isEntered = entryDate <= monthEnd;
-
-                                            if (!isEntered) return false;
-
-                                            if (t.status === 'Open') return true;
-
-                                            // If closed, check if it was closed AFTER this month
-                                            if (t.exitDate) {
-                                                const exitDate = new Date(t.exitDate);
-                                                return exitDate > monthEnd;
-                                            }
-
-                                            return true; // Fallback (should have exitDate if closed)
-                                        });
-
-                                        // Calculate total invested capital for these active trades
-                                        const totalInvested = activeTrades.reduce((sum, t) => sum + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
-
-                                        cumulativeTotal.push(totalInvested);
-
-                                        // Calculate Growth % (Month over Month change in invested capital)
-                                        // This is a bit tricky for "Growth". usually growth implies PnL.
-                                        // But the chart label is "Monthly Growth %". 
-                                        // If the user wants to see how much they *added* to the position:
-                                        // Let's calculate the Net Change in Invested Capital
-                                        const prevInv = i > 0 ? cumulativeTotal[i - 1] : 0;
-                                        let changePct = 0;
-
-                                        if (prevInv > 0) {
-                                            changePct = ((totalInvested - prevInv) / prevInv) * 100;
-                                        } else if (totalInvested > 0) {
-                                            changePct = 100; // New position started
-                                        }
-
-                                        monthlyGrowth.push(changePct);
-                                    }
-
-                                    const drillDownChartData = {
-                                        labels: months,
-                                        datasets: [
-                                            {
-                                                type: 'line' as const,
-                                                label: 'Total Invested (Cumulative)',
-                                                data: cumulativeTotal,
-                                                borderColor: '#10b981', // Emerald
-                                                backgroundColor: '#10b981',
-                                                borderWidth: 3,
-                                                tension: 0.3,
-                                                pointRadius: 4,
-                                                pointBackgroundColor: '#fff',
-                                                pointBorderWidth: 2,
-                                                yAxisID: 'y',
-                                                order: 1
-                                            },
-                                            {
-                                                type: 'bar' as const,
-                                                label: 'Monthly Growth %',
-                                                data: monthlyGrowth,
-                                                backgroundColor: 'rgba(59, 130, 246, 0.6)', // Blue transparent
-                                                borderColor: '#3b82f6',
-                                                borderWidth: 1,
-                                                yAxisID: 'y1',
-                                                order: 2
-                                            }
-                                        ]
-                                    };
-
-                                    const drillDownOptions = {
-                                        responsive: true,
-                                        interaction: {
-                                            mode: 'index' as const,
-                                            intersect: false,
-                                        },
-                                        plugins: {
-                                            tooltip: {
-                                                callbacks: {
-                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                                    label: function (context: any) {
-                                                        let label = context.dataset.label || '';
-                                                        if (label) label += ': ';
-
-                                                        if (context.dataset.type === 'line') {
-                                                            if (context.parsed.y !== null) {
-                                                                label += formatCurrency(context.parsed.y);
-                                                            }
-                                                        } else {
-                                                            if (context.parsed.y !== null) {
-                                                                label += context.parsed.y.toFixed(1) + '%';
-                                                            }
-                                                        }
-                                                        return label;
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        scales: {
-                                            y: {
-                                                type: 'linear' as const,
-                                                display: true,
-                                                position: 'left' as const,
-                                                title: { display: true, text: 'Total Value ($)' },
-                                                ticks: {
-                                                    callback: (v: string | number) => {
-                                                        const val = Number(v);
-                                                        if (Math.abs(val) >= 1000) {
-                                                            return '$' + (val / 1000).toFixed(1) + 'k';
-                                                        }
-                                                        return '$' + val;
-                                                    }
-                                                },
-                                                grid: { display: false }
-                                            },
-                                            y1: {
-                                                type: 'linear' as const,
-                                                display: true,
-                                                position: 'right' as const,
-                                                title: { display: true, text: 'Monthly Growth (%)' },
-                                                ticks: { callback: (v: string | number) => v + '%' },
-                                                grid: { drawOnChartArea: true, color: '#f3f4f6' },
-                                            },
-                                        }
-                                    };
-
-                                    return <Chart type='bar' data={drillDownChartData} options={drillDownOptions} />;
-                                })()}
-                            </Box>
-                        ) : (
-                            <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'background.default', borderRadius: 2 }}>
-                                <Typography>Select a ticker from the dropdown to view its growth graph.</Typography>
-                            </Box>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
                         )}
                     </Paper>
                 </Grid>
+
+                {/* NEW: Charts Row (Split) - Hide for Personal Account as we already showed charts above */}
+                {selectedAccount !== 'PERSONAL' && (
+                    <>
+                        <Grid size={{ xs: 12, md: 8 }}>
+                            <Paper sx={{ p: 3, height: '100%' }}>
+                                <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 2 }}>
+                                    <Box sx={{ p: 1, bgcolor: 'primary.soft', borderRadius: '50%', color: 'primary.main' }}>
+                                        <BarChart3 size={20} />
+                                    </Box>
+                                    <Typography variant="h6" fontWeight="bold">Monthly Capital Allocation</Typography>
+                                </Stack>
+                                <Box sx={{ height: 350 }}>
+                                    {chartData ? (
+                                        <Bar options={chartOptions} data={chartData} />
+                                    ) : (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                                            <CircularProgress />
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Paper>
+                        </Grid>
+
+                        <Grid size={{ xs: 12, md: 4 }}>
+                            <Paper sx={{ p: 3, height: '100%' }}>
+                                <Stack direction="row" alignItems="center" gap={2} sx={{ mb: 2 }}>
+                                    <Box sx={{ p: 1, bgcolor: 'warning.soft', borderRadius: '50%', color: 'warning.main' }}>
+                                        <PieChart size={20} />
+                                    </Box>
+                                    <Typography variant="h6" fontWeight="bold">Allocation</Typography>
+                                </Stack>
+                                <Box sx={{ height: 350, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    {reportData.length > 0 ? (
+                                        <Doughnut options={doughnutOptions} data={allocationData} />
+                                    ) : (
+                                        <Typography color="text.secondary">No data</Typography>
+                                    )}
+                                </Box>
+                            </Paper>
+                        </Grid>
+                    </>
+                )}
+
+                {/* NEW: Ticker Analysis Section */}
+                {selectedAccount !== 'PERSONAL' && (
+                    <Grid size={{ xs: 12 }}>
+                        <Paper sx={{ p: 3 }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                                <Stack direction="row" alignItems="center" gap={2}>
+                                    <Box sx={{ p: 1, bgcolor: 'secondary.soft', borderRadius: '50%', color: 'secondary.main' }}>
+                                        <TrendingUp size={20} />
+                                    </Box>
+                                    <Typography variant="h6" fontWeight="bold">Ticker Accumulation Analysis</Typography>
+                                </Stack>
+                                <Select
+                                    size="small"
+                                    displayEmpty
+                                    value={drillDownSymbol || ''}
+                                    onChange={(e) => setDrillDownSymbol(e.target.value)}
+                                    sx={{ minWidth: 200 }}
+                                >
+                                    <MenuItem value="" disabled>Select Ticker</MenuItem>
+                                    {Array.from(new Set(rawTrades?.map(t => t.symbol))).sort().map(sym => (
+                                        <MenuItem key={sym} value={sym}>{sym}</MenuItem>
+                                    ))}
+                                </Select>
+                            </Stack>
+
+                            {drillDownSymbol ? (
+                                <Box sx={{ height: 400 }}>
+                                    {(() => {
+                                        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                                        const symbolTrades = rawTrades?.filter(t => t.symbol === drillDownSymbol) || [];
+
+                                        // Calculate Data: Net Invested Capital (Active Holdings)
+                                        const monthlyGrowth: number[] = [];
+                                        const cumulativeTotal: number[] = [];
+
+                                        for (let i = 0; i < 12; i++) {
+                                            // Define end of this month
+                                            const monthEnd = new Date(year, i + 1, 0, 23, 59, 59); // Last second of the month
+
+                                            // Filter trades that were ACTIVE at the end of this month
+                                            // Criteria:
+                                            // 1. Entered on or before this month end
+                                            // 2. Status is Open OR (Status is Closed but Exit Date is AFTER this month end)
+                                            const activeTrades = symbolTrades.filter(t => {
+                                                const entryDate = new Date(t.date);
+                                                const isEntered = entryDate <= monthEnd;
+
+                                                if (!isEntered) return false;
+
+                                                if (t.status === 'Open') return true;
+
+                                                // If closed, check if it was closed AFTER this month
+                                                if (t.exitDate) {
+                                                    const exitDate = new Date(t.exitDate);
+                                                    return exitDate > monthEnd;
+                                                }
+
+                                                return true; // Fallback (should have exitDate if closed)
+                                            });
+
+                                            // Calculate total invested capital for these active trades
+                                            const totalInvested = activeTrades.reduce((sum, t) => sum + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
+
+                                            cumulativeTotal.push(totalInvested);
+
+                                            // Calculate Growth % (Month over Month change in invested capital)
+                                            // This is a bit tricky for "Growth". usually growth implies PnL.
+                                            // But the chart label is "Monthly Growth %". 
+                                            // If the user wants to see how much they *added* to the position:
+                                            // Let's calculate the Net Change in Invested Capital
+                                            const prevInv = i > 0 ? cumulativeTotal[i - 1] : 0;
+                                            let changePct = 0;
+
+                                            if (prevInv > 0) {
+                                                changePct = ((totalInvested - prevInv) / prevInv) * 100;
+                                            } else if (totalInvested > 0) {
+                                                changePct = 100; // New position started
+                                            }
+
+                                            monthlyGrowth.push(changePct);
+                                        }
+
+                                        const drillDownChartData = {
+                                            labels: months,
+                                            datasets: [
+                                                {
+                                                    type: 'line' as const,
+                                                    label: 'Total Invested (Cumulative)',
+                                                    data: cumulativeTotal,
+                                                    borderColor: '#10b981', // Emerald
+                                                    backgroundColor: '#10b981',
+                                                    borderWidth: 3,
+                                                    tension: 0.3,
+                                                    pointRadius: 4,
+                                                    pointBackgroundColor: '#fff',
+                                                    pointBorderWidth: 2,
+                                                    yAxisID: 'y',
+                                                    order: 1
+                                                },
+                                                {
+                                                    type: 'bar' as const,
+                                                    label: 'Monthly Growth %',
+                                                    data: monthlyGrowth,
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.6)', // Blue transparent
+                                                    borderColor: '#3b82f6',
+                                                    borderWidth: 1,
+                                                    yAxisID: 'y1',
+                                                    order: 2
+                                                }
+                                            ]
+                                        };
+
+                                        const drillDownOptions = {
+                                            responsive: true,
+                                            interaction: {
+                                                mode: 'index' as const,
+                                                intersect: false,
+                                            },
+                                            plugins: {
+                                                tooltip: {
+                                                    callbacks: {
+                                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                                                        label: function (context: any) {
+                                                            let label = context.dataset.label || '';
+                                                            if (label) label += ': ';
+
+                                                            if (context.dataset.type === 'line') {
+                                                                if (context.parsed.y !== null) {
+                                                                    label += formatCurrency(context.parsed.y);
+                                                                }
+                                                            } else {
+                                                                if (context.parsed.y !== null) {
+                                                                    label += context.parsed.y.toFixed(1) + '%';
+                                                                }
+                                                            }
+                                                            return label;
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            scales: {
+                                                y: {
+                                                    type: 'linear' as const,
+                                                    display: true,
+                                                    position: 'left' as const,
+                                                    title: { display: true, text: 'Total Value ($)' },
+                                                    ticks: {
+                                                        callback: (v: string | number) => {
+                                                            const val = Number(v);
+                                                            if (Math.abs(val) >= 1000) {
+                                                                return '$' + (val / 1000).toFixed(1) + 'k';
+                                                            }
+                                                            return '$' + val;
+                                                        }
+                                                    },
+                                                    grid: { display: false }
+                                                },
+                                                y1: {
+                                                    type: 'linear' as const,
+                                                    display: true,
+                                                    position: 'right' as const,
+                                                    title: { display: true, text: 'Monthly Growth (%)' },
+                                                    ticks: { callback: (v: string | number) => v + '%' },
+                                                    grid: { drawOnChartArea: true, color: '#f3f4f6' },
+                                                },
+                                            }
+                                        };
+
+                                        return <Chart type='bar' data={drillDownChartData} options={drillDownOptions} />;
+                                    })()}
+                                </Box>
+                            ) : (
+                                <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary', bgcolor: 'background.default', borderRadius: 2 }}>
+                                    <Typography>Select a ticker from the dropdown to view its growth graph.</Typography>
+                                </Box>
+                            )}
+                        </Paper>
+                    </Grid>
+                )}
             </Grid>
 
             {/* Drill Down Dialog */}
