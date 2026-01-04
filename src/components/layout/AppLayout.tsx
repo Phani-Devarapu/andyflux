@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { Menu as MenuIcon } from 'lucide-react';
 import {
     Box,
@@ -90,7 +91,8 @@ export function AppLayout() {
                     p: 3,
                     width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
                     minHeight: '100vh',
-                    bgcolor: 'background.default'
+                    bgcolor: 'background.default',
+                    pb: { xs: 8, md: 3 } // Add padding for bottom nav on mobile
                 }}
             >
                 <Toolbar sx={{ display: { md: 'none' } }} />
@@ -99,6 +101,8 @@ export function AppLayout() {
                     <Outlet />
                 </Box>
             </Box>
+
+            <MobileBottomNav onMenuClick={handleDrawerToggle} />
         </Box>
     );
 }

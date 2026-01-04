@@ -887,33 +887,55 @@ export function ActivityReport() {
                                     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                                     const symbolTrades = rawTrades?.filter(t => t.symbol === drillDownSymbol) || [];
 
-                                    // Calculate Data
-                                    let runningTotal = 0;
+                                    // Calculate Data: Net Invested Capital (Active Holdings)
                                     const monthlyGrowth: number[] = [];
                                     const cumulativeTotal: number[] = [];
 
                                     for (let i = 0; i < 12; i++) {
-                                        const trades = symbolTrades.filter(t => t.date.getMonth() === i);
-                                        const monthlyCost = trades.reduce((sum, t) => sum + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
+                                        // Define end of this month
+                                        const monthEnd = new Date(year, i + 1, 0, 23, 59, 59); // Last second of the month
 
-                                        const prevTotal = runningTotal;
-                                        runningTotal += monthlyCost;
+                                        // Filter trades that were ACTIVE at the end of this month
+                                        // Criteria:
+                                        // 1. Entered on or before this month end
+                                        // 2. Status is Open OR (Status is Closed but Exit Date is AFTER this month end)
+                                        const activeTrades = symbolTrades.filter(t => {
+                                            const entryDate = new Date(t.date);
+                                            const isEntered = entryDate <= monthEnd;
 
-                                        // Calculate Growth %
-                                        // If it's the first buy (prevTotal == 0), we can show 100% or 0%. 
-                                        // Let's show 100% to indicate a new position start, or maybe capped? 
-                                        // Users usually want to see the 'add' size relative to the 'bag'.
-                                        let growthPct = 0;
-                                        if (monthlyCost > 0) {
-                                            if (prevTotal > 0) {
-                                                growthPct = (monthlyCost / prevTotal) * 100;
-                                            } else {
-                                                growthPct = 100; // Initial position
+                                            if (!isEntered) return false;
+
+                                            if (t.status === 'Open') return true;
+
+                                            // If closed, check if it was closed AFTER this month
+                                            if (t.exitDate) {
+                                                const exitDate = new Date(t.exitDate);
+                                                return exitDate > monthEnd;
                                             }
+
+                                            return true; // Fallback (should have exitDate if closed)
+                                        });
+
+                                        // Calculate total invested capital for these active trades
+                                        const totalInvested = activeTrades.reduce((sum, t) => sum + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
+
+                                        cumulativeTotal.push(totalInvested);
+
+                                        // Calculate Growth % (Month over Month change in invested capital)
+                                        // This is a bit tricky for "Growth". usually growth implies PnL.
+                                        // But the chart label is "Monthly Growth %". 
+                                        // If the user wants to see how much they *added* to the position:
+                                        // Let's calculate the Net Change in Invested Capital
+                                        const prevInv = i > 0 ? cumulativeTotal[i - 1] : 0;
+                                        let changePct = 0;
+
+                                        if (prevInv > 0) {
+                                            changePct = ((totalInvested - prevInv) / prevInv) * 100;
+                                        } else if (totalInvested > 0) {
+                                            changePct = 100; // New position started
                                         }
 
-                                        monthlyGrowth.push(growthPct);
-                                        cumulativeTotal.push(runningTotal);
+                                        monthlyGrowth.push(changePct);
                                     }
 
                                     const drillDownChartData = {
@@ -979,7 +1001,15 @@ export function ActivityReport() {
                                                 display: true,
                                                 position: 'left' as const,
                                                 title: { display: true, text: 'Total Value ($)' },
-                                                ticks: { callback: (v: any) => '$' + v / 1000 + 'k' },
+                                                ticks: {
+                                                    callback: (v: any) => {
+                                                        const val = Number(v);
+                                                        if (Math.abs(val) >= 1000) {
+                                                            return '$' + (val / 1000).toFixed(1) + 'k';
+                                                        }
+                                                        return '$' + val;
+                                                    }
+                                                },
                                                 grid: { display: false }
                                             },
                                             y1: {

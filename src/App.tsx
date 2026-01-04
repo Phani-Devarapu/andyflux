@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
+import { syncService } from './services/SyncService';
+import { expenseSyncService } from './services/ExpenseSyncService';
 import { AppLayout } from './components/layout/AppLayout';
 import { Dashboard } from './pages/Dashboard';
 import { TradeList } from './pages/TradeList';
@@ -16,6 +18,7 @@ import { getTheme } from './theme';
 
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { WelcomePage } from './pages/WelcomePage';
+import { ExpenseManagerPage } from './pages/ExpenseManagerPage';
 
 function AppContent() {
   const { mode } = useColorMode();
@@ -40,7 +43,9 @@ function AppContent() {
           <Route path="/ticker-analytics" element={<TickerAnalytics />} />
           <Route path="/strategy-analytics" element={<StrategyAnalytics />} />
           <Route path="/calendar" element={<Calendar />} />
+          <Route path="/calendar" element={<Calendar />} />
           <Route path="/activity-reports" element={<ActivityReport />} />
+          <Route path="/expenses" element={<ExpenseManagerPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -50,6 +55,15 @@ function AppContent() {
 }
 
 function App() {
+  useEffect(() => {
+    syncService.init();
+    expenseSyncService.init();
+    return () => {
+      syncService.dispose();
+      expenseSyncService.dispose();
+    }
+  }, []);
+
   return (
     <AccountProvider>
       <ColorModeProvider>

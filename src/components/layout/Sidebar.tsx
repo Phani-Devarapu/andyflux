@@ -11,7 +11,8 @@ import {
     PlusCircle,
     Sun,
     Moon,
-    Activity
+    Activity,
+    Wallet
 } from 'lucide-react';
 import {
     Box,
@@ -45,6 +46,7 @@ const MENU_ITEMS = [
     { text: 'Activity Reports', icon: Activity, path: '/activity-reports' },
     { text: 'Ticker Analytics', icon: BarChart3, path: '/ticker-analytics' },
     { text: 'Strategy Analytics', icon: PieChart, path: '/strategy-analytics' },
+    { text: 'Expenses', icon: Wallet, path: '/expenses' },
     // { text: 'Settings', icon: Settings, path: '/settings' },
 ];
 
@@ -142,75 +144,77 @@ export function Sidebar({ onClose }: SidebarProps) {
                     </Box>
                 </Box>
 
-                {/* Navigation Items */}
-                <List sx={{ px: 2, flexGrow: 1 }}>
-                    {MENU_ITEMS.map((item) => {
-                        const Icon = item.icon;
-                        const active = location.pathname === item.path;
-                        return (
-                            <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
-                                <ListItemButton
-                                    onClick={() => handleNavigation(item.path)}
-                                    selected={active}
-                                    sx={{
-                                        borderRadius: 2,
-                                        py: 1.5,
-                                        color: active ? 'primary.main' : 'text.secondary',
-                                        bgcolor: active ? (theme) => alpha(theme.palette.primary.main, 0.1) : 'transparent',
-                                        '&:hover': {
-                                            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
-                                            color: 'primary.main',
-                                        },
-                                        '&.Mui-selected': {
-                                            bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                {/* Navigation Items (Scrollable Area) */}
+                <Box sx={{ flexGrow: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <List sx={{ px: 2 }}>
+                        {MENU_ITEMS.map((item) => {
+                            const Icon = item.icon;
+                            const active = location.pathname === item.path;
+                            return (
+                                <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
+                                    <ListItemButton
+                                        onClick={() => handleNavigation(item.path)}
+                                        selected={active}
+                                        sx={{
+                                            borderRadius: 2,
+                                            py: 1.5,
+                                            color: active ? 'primary.main' : 'text.secondary',
+                                            bgcolor: active ? (theme) => alpha(theme.palette.primary.main, 0.1) : 'transparent',
                                             '&:hover': {
-                                                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.15),
+                                                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.05),
+                                                color: 'primary.main',
                                             },
-                                        },
-                                    }}
-                                >
-                                    <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
-                                        <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                                    </ListItemIcon>
-                                    <ListItemText
-                                        primary={item.text}
-                                        primaryTypographyProps={{
-                                            fontWeight: active ? 700 : 500,
-                                            fontSize: '0.9rem',
+                                            '&.Mui-selected': {
+                                                bgcolor: (theme) => alpha(theme.palette.primary.main, 0.1),
+                                                '&:hover': {
+                                                    bgcolor: (theme) => alpha(theme.palette.primary.main, 0.15),
+                                                },
+                                            },
                                         }}
-                                    />
-                                </ListItemButton>
-                            </ListItem>
-                        );
-                    })}
+                                    >
+                                        <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                                            <Icon size={20} strokeWidth={active ? 2.5 : 2} />
+                                        </ListItemIcon>
+                                        <ListItemText
+                                            primary={item.text}
+                                            primaryTypographyProps={{
+                                                fontWeight: active ? 700 : 500,
+                                                fontSize: '0.9rem',
+                                            }}
+                                        />
+                                    </ListItemButton>
+                                </ListItem>
+                            );
+                        })}
 
-                    {/* Theme Toggle Button */}
-                    <ListItem disablePadding sx={{ mb: 1, mt: 2 }}>
-                        <ListItemButton
-                            onClick={toggleColorMode}
-                            sx={{
-                                borderRadius: 2,
-                                py: 1.5,
-                                color: 'text.secondary',
-                                '&:hover': {
-                                    bgcolor: 'action.hover',
-                                    color: 'text.primary',
-                                }
-                            }}
-                        >
-                            <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
-                                {mode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-                            </ListItemIcon>
-                            <ListItemText
-                                primary={mode === 'dark' ? "Light Mode" : "Dark Mode"}
-                                primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }}
-                            />
-                        </ListItemButton>
-                    </ListItem>
-                </List>
+                        {/* Theme Toggle Button */}
+                        <ListItem disablePadding sx={{ mb: 1, mt: 2 }}>
+                            <ListItemButton
+                                onClick={toggleColorMode}
+                                sx={{
+                                    borderRadius: 2,
+                                    py: 1.5,
+                                    color: 'text.secondary',
+                                    '&:hover': {
+                                        bgcolor: 'action.hover',
+                                        color: 'text.primary',
+                                    }
+                                }}
+                            >
+                                <ListItemIcon sx={{ minWidth: 40, color: 'inherit' }}>
+                                    {mode === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+                                </ListItemIcon>
+                                <ListItemText
+                                    primary={mode === 'dark' ? "Light Mode" : "Dark Mode"}
+                                    primaryTypographyProps={{ fontWeight: 500, fontSize: '0.9rem' }}
+                                />
+                            </ListItemButton>
+                        </ListItem>
+                    </List>
 
-                <Box sx={{ px: 2, mb: 2 }}>
-                    <GoalsWidget />
+                    <Box sx={{ px: 2, mb: 2, mt: 'auto' }}>
+                        <GoalsWidget />
+                    </Box>
                 </Box>
 
                 <Divider sx={{ mx: 3 }} />

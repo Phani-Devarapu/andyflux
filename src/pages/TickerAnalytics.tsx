@@ -26,6 +26,7 @@ import { Search } from '@mui/icons-material';
 
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
+import { useMarketData } from '../context/MarketDataContext';
 
 type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 
@@ -34,6 +35,7 @@ export const TickerAnalytics = () => {
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
     const { user } = useAuth();
+    const { prices } = useMarketData();
     const trades = useLiveQuery(async () => {
         if (!selectedAccount || !user) return [];
         return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
@@ -133,7 +135,19 @@ export const TickerAnalytics = () => {
             {selectedTicker && (
                 <>
                     {/* Metrics Grid */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }, gap: 3, mb: 4 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 3, mb: 4 }}>
+                        {(() => {
+                            const currentData = prices[selectedTicker.toUpperCase()];
+                            return (
+                                <MetricCard
+                                    label="Last Price"
+                                    value={currentData ? formatCurrency(currentData.price) : '---'}
+                                    subtext={currentData?.change ? `${currentData.change > 0 ? '+' : ''}${currentData.change.toFixed(2)}%` : 'Real-time'}
+                                    trend={currentData?.change ? (currentData.change >= 0 ? 'up' : 'down') : undefined}
+                                    highlight={!!currentData}
+                                />
+                            );
+                        })()}
                         <MetricCard
                             label="Net P/L"
                             value={formatCurrency(stats.pnl)}
@@ -171,6 +185,7 @@ export const TickerAnalytics = () => {
                                         <TableCell>Date</TableCell>
                                         <TableCell>Side</TableCell>
                                         <TableCell>Setup</TableCell>
+                                        <TableCell align="right">Quantity</TableCell>
                                         <TableCell align="right">Entry</TableCell>
                                         <TableCell align="right">Exit</TableCell>
                                         <TableCell align="right">P/L</TableCell>
@@ -190,6 +205,7 @@ export const TickerAnalytics = () => {
                                                 />
                                             </TableCell>
                                             <TableCell>{trade.strategy || '-'}</TableCell>
+                                            <TableCell align="right">{trade.quantity}</TableCell>
                                             <TableCell align="right">{trade.entryPrice}</TableCell>
                                             <TableCell align="right">{trade.exitPrice}</TableCell>
                                             <TableCell align="right">
