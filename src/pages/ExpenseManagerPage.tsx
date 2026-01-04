@@ -10,6 +10,8 @@ import { SubscriptionList } from '../components/expenses/SubscriptionList';
 import { ExpenseCard } from '../components/expenses/ExpenseCard';
 import { AddExpenseDialog } from '../components/expenses/AddExpenseDialog';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../types/expenseTypes';
+import { RecurringExpenseService } from '../services/RecurringExpenseService';
+import { useEffect } from 'react';
 
 export function ExpenseManagerPage() {
     const { user } = useAuth();
@@ -17,6 +19,13 @@ export function ExpenseManagerPage() {
     const theme = useTheme();
     const [openAdd, setOpenAdd] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+
+    // Check for recurring expenses on mount
+    useEffect(() => {
+        if (user) {
+            RecurringExpenseService.checkAndGenerateExpenses().catch(console.error);
+        }
+    }, [user]);
 
     // Fetch expenses LIVE from Dexie
     const expenses = useLiveQuery(

@@ -697,7 +697,11 @@ export function ActivityReport() {
                                                 data={expenseTrendData}
                                                 options={{
                                                     responsive: true,
-                                                    scales: { y: { beginAtZero: true } }
+                                                    maintainAspectRatio: false,
+                                                    scales: { y: { beginAtZero: true } },
+                                                    plugins: {
+                                                        legend: { display: false }
+                                                    }
                                                 }}
                                             />
                                         )}

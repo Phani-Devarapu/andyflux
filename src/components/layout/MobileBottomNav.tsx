@@ -16,7 +16,6 @@ export function MobileBottomNav({ onMenuClick }: MobileBottomNavProps) {
         if (path === '/') return '/';
         if (path.startsWith('/calendar')) return '/calendar';
         if (path.startsWith('/trades')) return '/trades';
-        if (path.startsWith('/trades')) return '/trades';
         if (path.startsWith('/expenses')) return '/expenses';
         if (path.startsWith('/add')) return '/add';
         return false; // No selection for other paths (they will be accessed via Menu)

@@ -17,6 +17,19 @@ export interface Expense {
     updatedAt?: Date;
 }
 
+export interface RecurringExpenseRule {
+    id?: number;
+    userId: string;
+    accountId: string;
+    category: string;
+    amount: number;
+    description?: string;
+    frequency: RecurringFrequency;
+    lastGeneratedDate?: Date; // To prevent duplicates
+    nextDueDate: Date;
+    isActive: boolean;
+}
+
 export interface ExpenseCategory {
     id?: string; // e.g., "software", "education"
     name: string;

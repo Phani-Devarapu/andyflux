@@ -207,123 +207,126 @@ export function Calendar() {
                     bgcolor: 'background.paper',
                     // Only apply dark glass effect in dark mode
                     background: theme.palette.mode === 'dark' ? 'rgba(15, 23, 42, 0.6)' : undefined,
-                    backdropFilter: 'blur(10px)'
+                    backdropFilter: 'blur(10px)',
+                    overflowX: 'auto' // Allow scrolling on small screens
                 }}
             >
-                {/* Weekday Headers */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 2 }}>
-                    {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
-                        <Typography key={day} variant="caption" fontWeight="bold" align="center" color="text.secondary" sx={{ letterSpacing: 2 }}>
-                            {day}
-                        </Typography>
-                    ))}
-                </Box>
+                <Box sx={{ minWidth: 600 }}> {/* Ensure minimum width to prevent squashing */}
+                    {/* Weekday Headers */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 2 }}>
+                        {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map(day => (
+                            <Typography key={day} variant="caption" fontWeight="bold" align="center" color="text.secondary" sx={{ letterSpacing: 2 }}>
+                                {day}
+                            </Typography>
+                        ))}
+                    </Box>
 
-                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, autoRows: '140px' }}>
-                    {/* Empty Slots */}
-                    {emptySlots.map((_, i) => (
-                        <Box key={`empty-${i}`} sx={{ borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)' }} />
-                    ))}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 2, autoRows: '140px' }}>
+                        {/* Empty Slots */}
+                        {emptySlots.map((_, i) => (
+                            <Box key={`empty-${i}`} sx={{ borderRadius: 3, bgcolor: 'rgba(255,255,255,0.02)' }} />
+                        ))}
 
-                    {/* Days */}
-                    {daysInMonth.map(day => {
-                        let count = 0;
-                        let content = null;
-                        const today = isToday(day);
-                        const isLight = theme.palette.mode === 'light';
+                        {/* Days */}
+                        {daysInMonth.map(day => {
+                            let count = 0;
+                            let content = null;
+                            const today = isToday(day);
+                            const isLight = theme.palette.mode === 'light';
 
-                        // Default styles
-                        const borderColor = today ? theme.palette.primary.main : (isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)');
-                        const bgcolor = isLight ? '#ffffff' : '#1e293b';
+                            // Default styles
+                            const borderColor = today ? theme.palette.primary.main : (isLight ? '#e2e8f0' : 'rgba(255, 255, 255, 0.1)');
+                            const bgcolor = isLight ? '#ffffff' : '#1e293b';
 
-                        if (selectedAccount === 'PERSONAL') {
-                            const stats = getExpenseDayStats(day);
-                            count = stats.count;
-                            if (count > 0) {
-                                content = (
-                                    <Box sx={{ width: '100%' }}>
-                                        <Typography
-                                            variant="body1"
-                                            fontWeight="bold"
-                                            color="warning.main"
-                                            align="center"
-                                            sx={{ my: 1 }}
-                                        >
-                                            {formatCurrency(stats.totalSpent)}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight="medium">
-                                                {count} {count === 1 ? 'Item' : 'Items'}
+                            if (selectedAccount === 'PERSONAL') {
+                                const stats = getExpenseDayStats(day);
+                                count = stats.count;
+                                if (count > 0) {
+                                    content = (
+                                        <Box sx={{ width: '100%' }}>
+                                            <Typography
+                                                variant="body1"
+                                                fontWeight="bold"
+                                                color="warning.main"
+                                                align="center"
+                                                sx={{ my: 1 }}
+                                            >
+                                                {formatCurrency(stats.totalSpent)}
                                             </Typography>
-                                        </Box>
-                                    </Box>
-                                );
-                            }
-                        } else {
-                            const stats = getDayStats(day);
-                            count = stats.count;
-                            if (count > 0) {
-                                content = (
-                                    <Box sx={{ width: '100%' }}>
-                                        <Typography
-                                            variant="body1"
-                                            fontWeight="bold"
-                                            color={stats.pnl !== 0 ? (stats.pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
-                                            align="center"
-                                            sx={{ my: 1 }}
-                                        >
-                                            {formatCurrency(stats.pnl !== 0 ? stats.pnl : stats.invested)}
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Typography variant="caption" color="text.secondary" fontWeight="medium">
-                                                {count} {count === 1 ? 'Trade' : 'Trades'}
-                                            </Typography>
-                                            {/* Small dots for wins/losses */}
-                                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                                                {stats.wins > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />}
-                                                {stats.losses > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />}
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                                                    {count} {count === 1 ? 'Item' : 'Items'}
+                                                </Typography>
                                             </Box>
                                         </Box>
-                                    </Box>
-                                );
+                                    );
+                                }
+                            } else {
+                                const stats = getDayStats(day);
+                                count = stats.count;
+                                if (count > 0) {
+                                    content = (
+                                        <Box sx={{ width: '100%' }}>
+                                            <Typography
+                                                variant="body1"
+                                                fontWeight="bold"
+                                                color={stats.pnl !== 0 ? (stats.pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
+                                                align="center"
+                                                sx={{ my: 1 }}
+                                            >
+                                                {formatCurrency(stats.pnl !== 0 ? stats.pnl : stats.invested)}
+                                            </Typography>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                                                    {count} {count === 1 ? 'Trade' : 'Trades'}
+                                                </Typography>
+                                                {/* Small dots for wins/losses */}
+                                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                                    {stats.wins > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'success.main' }} />}
+                                                    {stats.losses > 0 && <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'error.main' }} />}
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                    );
+                                }
                             }
-                        }
 
-                        return (
-                            <Paper
-                                key={day.toString()}
-                                variant="outlined"
-                                onClick={() => count > 0 && setSelectedDate(day)}
-                                sx={{
-                                    p: 1.5,
-                                    borderRadius: 3,
-                                    bgcolor: count > 0 ? bgcolor : (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.4)'),
-                                    borderColor: today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'info.main') : borderColor,
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    justifyContent: 'space-between',
-                                    transition: 'all 0.3s',
-                                    cursor: count > 0 ? 'pointer' : 'default',
-                                    borderWidth: today ? 2 : 1,
-                                    borderStyle: today ? 'solid' : undefined,
-                                    '&:hover': {
-                                        transform: count > 0 ? 'translateY(-2px)' : 'none',
-                                        boxShadow: count > 0 ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
-                                        bgcolor: count > 0 ? bgcolor : (isLight ? '#f1f5f9' : 'rgba(30, 41, 59, 0.6)')
-                                    }
-                                }}
-                            >
-                                <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                    <Typography variant="body2" fontWeight={today ? "900" : "medium"} color={today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'primary.main') : 'text.secondary'}>
-                                        {format(day, 'd')}
-                                    </Typography>
-                                </Box>
+                            return (
+                                <Paper
+                                    key={day.toString()}
+                                    variant="outlined"
+                                    onClick={() => count > 0 && setSelectedDate(day)}
+                                    sx={{
+                                        p: 1.5,
+                                        borderRadius: 3,
+                                        bgcolor: count > 0 ? bgcolor : (isLight ? '#f8fafc' : 'rgba(30, 41, 59, 0.4)'),
+                                        borderColor: today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'info.main') : borderColor,
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        justifyContent: 'space-between',
+                                        transition: 'all 0.3s',
+                                        cursor: count > 0 ? 'pointer' : 'default',
+                                        borderWidth: today ? 2 : 1,
+                                        borderStyle: today ? 'solid' : undefined,
+                                        '&:hover': {
+                                            transform: count > 0 ? 'translateY(-2px)' : 'none',
+                                            boxShadow: count > 0 ? '0 4px 12px rgba(0,0,0,0.1)' : 'none',
+                                            bgcolor: count > 0 ? bgcolor : (isLight ? '#f1f5f9' : 'rgba(30, 41, 59, 0.6)')
+                                        }
+                                    }}
+                                >
+                                    <Box sx={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Typography variant="body2" fontWeight={today ? "900" : "medium"} color={today ? (selectedAccount === 'PERSONAL' ? 'warning.main' : 'primary.main') : 'text.secondary'}>
+                                            {format(day, 'd')}
+                                        </Typography>
+                                    </Box>
 
-                                {count > 0 ? content : <Box sx={{ flexGrow: 1 }} />}
-                            </Paper>
-                        );
-                    })}
-                </Box>
+                                    {count > 0 ? content : <Box sx={{ flexGrow: 1 }} />}
+                                </Paper>
+                            );
+                        })}
+                    </Box>
+                </Box> {/* End minWidth wrapper */}
             </Paper>
 
             {/* Contribution Heatmap */}

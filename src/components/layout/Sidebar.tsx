@@ -66,7 +66,7 @@ export function Sidebar({ onClose }: SidebarProps) {
 
     const handleNavigation = (path: string) => {
         navigate(path);
-        onClose?.();
+        onClose?.(); // Close drawer if provided
     };
 
     // Filter menu items based on selected account

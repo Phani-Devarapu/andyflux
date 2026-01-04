@@ -19,13 +19,20 @@ expenseSyncService.init();
 goalSyncService.init();
 documentSyncService.init();
 
+import { LocalizationProvider } from '@mui/x-date-pickers';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+
+// ... imports
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <GlobalErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
           <MarketDataProvider>
-            <App />
+            <LocalizationProvider dateAdapter={AdapterDateFns}>
+              <App />
+            </LocalizationProvider>
           </MarketDataProvider>
         </AuthProvider>
       </BrowserRouter>

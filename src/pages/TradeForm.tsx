@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/incompatible-library */
 import { useForm, Controller, type Resolver, type SubmitHandler } from 'react-hook-form';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import type { Trade } from '../types/trade';
@@ -303,14 +304,63 @@ export function TradeForm() {
                 <Grid container spacing={3}>
                     {/* Basic Info */}
                     <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                            type="date"
-                            label="Date"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            {...register('date')}
-                            error={!!errors.date}
-                            helperText={errors.date?.message}
+                        <Controller
+                            name="date"
+                            control={control}
+                            render={({ field: { value, onChange }, fieldState: { error } }) => (
+                                <DatePicker
+                                    label="Date"
+                                    value={value ? new Date(value) : null}
+                                    onChange={(newValue) => {
+                                        if (newValue) {
+                                            // Handle potential timezone issues by keeping local YYYY-MM-DD
+                                            const offset = newValue.getTimezoneOffset();
+                                            const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
+                                            onChange(adjustedDate.toISOString().split('T')[0]);
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true,
+                                            error: !!error,
+                                            helperText: error?.message
+                                        }
+                                    }}
+                                />
+                            )}
+                        />
+                    </Grid>
+
+
+// ...
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Controller
+                            name="exitDate"
+                            control={control}
+                            render={({ field: { value, onChange }, fieldState: { error } }) => (
+                                <DatePicker
+                                    label="Exit Date"
+                                    value={value ? new Date(value) : null}
+                                    disabled={status === 'Open'}
+                                    onChange={(newValue) => {
+                                        if (newValue) {
+                                            const offset = newValue.getTimezoneOffset();
+                                            const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
+                                            onChange(adjustedDate.toISOString().split('T')[0]);
+                                        } else {
+                                            onChange(undefined);
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true,
+                                            error: !!error,
+                                            helperText: error?.message || (status === 'Open' ? 'Not applicable for open trades' : '')
+                                        }
+                                    }}
+                                />
+                            )}
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 6 }}>
@@ -412,12 +462,25 @@ export function TradeForm() {
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 4 }}>
-                                        <TextField
-                                            type="date"
-                                            label="Expiration"
-                                            fullWidth
-                                            InputLabelProps={{ shrink: true }}
-                                            {...register('expiration')}
+                                        <Controller
+                                            name="expiration"
+                                            control={control}
+                                            render={({ field: { value, onChange } }) => (
+                                                <DatePicker
+                                                    label="Expiration"
+                                                    value={value ? new Date(value) : null}
+                                                    onChange={(newValue) => {
+                                                        if (newValue) {
+                                                            const offset = newValue.getTimezoneOffset();
+                                                            const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
+                                                            onChange(adjustedDate.toISOString().split('T')[0]);
+                                                        } else {
+                                                            onChange(undefined);
+                                                        }
+                                                    }}
+                                                    slotProps={{ textField: { fullWidth: true } }}
+                                                />
+                                            )}
                                         />
                                     </Grid>
                                     <Grid size={{ xs: 12, md: 4 }}>
@@ -475,15 +538,32 @@ export function TradeForm() {
                         />
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
-                        <TextField
-                            type="date"
-                            label="Exit Date"
-                            fullWidth
-                            InputLabelProps={{ shrink: true }}
-                            {...register('exitDate')}
-                            error={!!errors.exitDate}
-                            helperText={errors.exitDate?.message || (status === 'Open' ? 'Not applicable for open trades' : '')}
-                            disabled={status === 'Open'}
+                        <Controller
+                            name="exitDate"
+                            control={control}
+                            render={({ field: { value, onChange }, fieldState: { error } }) => (
+                                <DatePicker
+                                    label="Exit Date"
+                                    value={value ? new Date(value) : null}
+                                    disabled={status === 'Open'}
+                                    onChange={(newValue) => {
+                                        if (newValue) {
+                                            const offset = newValue.getTimezoneOffset();
+                                            const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
+                                            onChange(adjustedDate.toISOString().split('T')[0]);
+                                        } else {
+                                            onChange(undefined);
+                                        }
+                                    }}
+                                    slotProps={{
+                                        textField: {
+                                            fullWidth: true,
+                                            error: !!error,
+                                            helperText: error?.message || (status === 'Open' ? 'Not applicable for open trades' : '')
+                                        }
+                                    }}
+                                />
+                            )}
                         />
                     </Grid>
 

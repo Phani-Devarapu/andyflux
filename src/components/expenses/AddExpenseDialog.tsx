@@ -1,5 +1,7 @@
+/* eslint-disable react-hooks/incompatible-library */
 import { useEffect } from 'react';
 import { useForm, Controller } from 'react-hook-form';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import {
     Dialog,
     DialogTitle,
@@ -22,6 +24,7 @@ import { getCategoryIcon } from '../../utils/categoryIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { format } from 'date-fns';
+import { RecurringExpenseService } from '../../services/RecurringExpenseService';
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -102,8 +105,15 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
 
             if (editExpense?.id) {
                 await expenseDb.expenses.update(editExpense.id, expenseData);
+                // Note: Updating a recurring expense's rule is a separate feature ("Manage Subscriptions")
+                // We could implement rule updates here too if we linked expense->ruleId
             } else {
                 await expenseDb.expenses.add(expenseData);
+
+                // If adding a new expense and it's recurring, CREATE A RULE
+                if (expenseData.isRecurring) {
+                    await RecurringExpenseService.createRuleFromExpense(expenseData);
+                }
             }
 
             onSave?.();
@@ -153,13 +163,16 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
                             <Controller
                                 name="date"
                                 control={control}
-                                render={({ field }) => (
-                                    <TextField
-                                        {...field}
+                                render={({ field: { value, onChange } }) => (
+                                    <DatePicker
                                         label="Date"
-                                        type="date"
-                                        fullWidth
-                                        InputLabelProps={{ shrink: true }}
+                                        value={value ? new Date(value) : null}
+                                        onChange={(newValue) => {
+                                            if (newValue) {
+                                                onChange(format(newValue, 'yyyy-MM-dd'));
+                                            }
+                                        }}
+                                        slotProps={{ textField: { fullWidth: true } }}
                                     />
                                 )}
                             />
