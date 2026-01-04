@@ -28,9 +28,12 @@ export interface ExpenseCategory {
 // Default Categories for Life Expenses
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     { id: 'housing', name: 'Housing', color: '#EF4444', icon: 'Home', isDefault: true },
-    { id: 'food', name: 'Food & Dining', color: '#F59E0B', icon: 'Utensils', isDefault: true },
+    { id: 'food', name: 'Dining Out', color: '#F59E0B', icon: 'Utensils', isDefault: true },
+    { id: 'groceries', name: 'Groceries', color: '#16A34A', icon: 'ShoppingCart', isDefault: true },
+    { id: 'laundry', name: 'Laundry', color: '#0EA5E9', icon: 'Shirt', isDefault: true },
     { id: 'transport', name: 'Transportation', color: '#3B82F6', icon: 'Car', isDefault: true },
     { id: 'utilities', name: 'Utilities', color: '#10B981', icon: 'Zap', isDefault: true },
+    { id: 'bills', name: 'Bills (Phone, Wifi)', color: '#6366F1', icon: 'Receipt', isDefault: true },
     { id: 'health', name: 'Health & Wellness', color: '#EC4899', icon: 'Heart', isDefault: true },
     { id: 'lifestyle', name: 'Lifestyle', color: '#8B5CF6', icon: 'ShoppingBag', isDefault: true },
     { id: 'debt', name: 'Debt Payments', color: '#6B7280', icon: 'CreditCard', isDefault: true },

@@ -1,6 +1,7 @@
 import {
     Home, Utensils, Car, Zap, Heart, ShoppingBag, CreditCard,
-    PiggyBank, GraduationCap, MoreHorizontal, HelpCircle
+    PiggyBank, GraduationCap, MoreHorizontal, HelpCircle,
+    Shirt, ShoppingCart, Receipt
 } from 'lucide-react';
 
 export const getCategoryIcon = (iconName?: string) => {
@@ -15,6 +16,9 @@ export const getCategoryIcon = (iconName?: string) => {
         case 'PiggyBank': return PiggyBank;
         case 'GraduationCap': return GraduationCap;
         case 'MoreHorizontal': return MoreHorizontal;
+        case 'Shirt': return Shirt;
+        case 'ShoppingCart': return ShoppingCart;
+        case 'Receipt': return Receipt;
         default: return HelpCircle;
     }
 };
