@@ -411,7 +411,7 @@ export function ActivityReport() {
         try {
             const url = await documentService.getDownloadUrl(doc.storagePath);
             window.open(url, '_blank');
-        } catch (e) {
+        } catch {
             alert('Error downloading file');
         }
     };
@@ -421,7 +421,7 @@ export function ActivityReport() {
         if (!doc.id) return;
         try {
             await documentService.deleteDocument(doc.id, doc.storagePath);
-        } catch (e) {
+        } catch {
             alert('Error deleting file');
         }
     };
@@ -580,6 +580,7 @@ export function ActivityReport() {
                                             legend: { position: 'top' as const },
                                             tooltip: {
                                                 callbacks: {
+                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                     label: function (context: any) {
                                                         const label = context.dataset.label || '';
                                                         const value = context.parsed.y;
@@ -977,6 +978,7 @@ export function ActivityReport() {
                                         plugins: {
                                             tooltip: {
                                                 callbacks: {
+                                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                                     label: function (context: any) {
                                                         let label = context.dataset.label || '';
                                                         if (label) label += ': ';
@@ -1002,7 +1004,7 @@ export function ActivityReport() {
                                                 position: 'left' as const,
                                                 title: { display: true, text: 'Total Value ($)' },
                                                 ticks: {
-                                                    callback: (v: any) => {
+                                                    callback: (v: string | number) => {
                                                         const val = Number(v);
                                                         if (Math.abs(val) >= 1000) {
                                                             return '$' + (val / 1000).toFixed(1) + 'k';
@@ -1017,7 +1019,7 @@ export function ActivityReport() {
                                                 display: true,
                                                 position: 'right' as const,
                                                 title: { display: true, text: 'Monthly Growth (%)' },
-                                                ticks: { callback: (v: any) => v + '%' },
+                                                ticks: { callback: (v: string | number) => v + '%' },
                                                 grid: { drawOnChartArea: true, color: '#f3f4f6' },
                                             },
                                         }

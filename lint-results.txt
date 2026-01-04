@@ -1,0 +1,222 @@
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\charts\EquityChart.tsx[24m[0m
+[0m  [2m72:25[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\expenses\AddExpenseDialog.tsx[24m[0m
+[0m  [2m57:25[22m  [33mwarning[39m  Compilation Skipped: Use of incompatible library[0m
+[0m[0m
+[0mThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\expenses\AddExpenseDialog.tsx:57:25[0m
+[0m  55 |     });[0m
+[0m  56 |[0m
+[0m> 57 |     const isRecurring = watch('isRecurring');[0m
+[0m     |                         ^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.[0m
+[0m  58 |[0m
+[0m  59 |     useEffect(() => {[0m
+[0m  60 |         if (open) {  [2mreact-hooks/incompatible-library[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\layout\Sidebar.tsx[24m[0m
+[0m  [2m100:43[22m  [31merror[39m  '_' is defined but never used             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m  [2m119:86[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\widgets\GoalsWidget.tsx[24m[0m
+[0m  [2m68:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\components\widgets\GoalsWidget.tsx:68:13[0m
+[0m  66 |     useEffect(() => {[0m
+[0m  67 |         if (goal) {[0m
+[0m> 68 |             setTargetAmount(goal.targetAmount.toString());[0m
+[0m     |             ^^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  69 |         }[0m
+[0m  70 |     }, [goal]);[0m
+[0m  71 |  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\context\MarketDataContext.tsx[24m[0m
+[0m   [2m24:14[22m  [31merror[39m  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      [2mreact-refresh/only-export-components[22m[0m
+[0m  [2m106:13[22m  [31merror[39m  Error: Calling setState synchronously within an effect can trigger cascading renders[0m
+[0m[0m
+[0mEffects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:[0m
+[0m* Update external systems with the latest state from React.[0m
+[0m* Subscribe for updates from some external system, calling setState in a callback function when external state changes.[0m
+[0m[0m
+[0mCalling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\context\MarketDataContext.tsx:106:13[0m
+[0m  104 |     useEffect(() => {[0m
+[0m  105 |         if (trackedSymbols.length > 0) {[0m
+[0m> 106 |             fetchQuotes(trackedSymbols);[0m
+[0m      |             ^^^^^^^^^^^ Avoid calling setState() directly within an effect[0m
+[0m  107 |         }[0m
+[0m  108 |     }, [trackedSymbols, fetchQuotes]);[0m
+[0m  109 |  [2mreact-hooks/set-state-in-effect[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\db\db.ts[24m[0m
+[0m  [2m23:21[22m  [31merror[39m  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  [2m@typescript-eslint/ban-ts-comment[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\ActivityReport.tsx[24m[0m
+[0m   [2m414:18[22m  [31merror[39m  'e' is defined but never used             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m424:18[22m  [31merror[39m  'e' is defined but never used             [2m@typescript-eslint/no-unused-vars[22m[0m
+[0m   [2m583:79[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m   [2m980:79[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m1005:67[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m1020:72[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx[24m[0m
+[0m  [2m248:22[22m  [31merror[39m  Error: Cannot create components during render[0m
+[0m[0m
+[0mComponents created during render will reset their state each time they are created. Declare components outside of render.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:248:22[0m
+[0m  246 |             <Grid container spacing={3} sx={{ mb: 4 }}>[0m
+[0m  247 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m> 248 |                     <StatsCard title="NET P/L" value={totalPnL} highlight />[0m
+[0m      |                      ^^^^^^^^^ This component is created during render[0m
+[0m  249 |                 </Grid>[0m
+[0m  250 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m  251 |                     <StatsCard title="WIN RATE" value={`${winRate.toFixed(1)}%`} subValue={`${winCount}W - ${lossCount}L`} />[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:186:23[0m
+[0m  184 |     }[0m
+[0m  185 |[0m
+[0m> 186 |     const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => ([0m
+[0m      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 187 |         <Card variant="outlined" sx={{ height: '100%' }}>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 188 |             <CardContent>[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 201 |         </Card>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 202 |     );[0m
+[0m      | ^^^^^^ The component is created during render here[0m
+[0m  203 |[0m
+[0m  204 |     return ([0m
+[0m  205 |         <Box sx={{ flexGrow: 1 }}>  [2mreact-hooks/static-components[22m[0m
+[0m  [2m251:22[22m  [31merror[39m  Error: Cannot create components during render[0m
+[0m[0m
+[0mComponents created during render will reset their state each time they are created. Declare components outside of render.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:251:22[0m
+[0m  249 |                 </Grid>[0m
+[0m  250 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m> 251 |                     <StatsCard title="WIN RATE" value={`${winRate.toFixed(1)}%`} subValue={`${winCount}W - ${lossCount}L`} />[0m
+[0m      |                      ^^^^^^^^^ This component is created during render[0m
+[0m  252 |                 </Grid>[0m
+[0m  253 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m  254 |                     <StatsCard title="AVG WIN" value={avgWin} highlight />[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:186:23[0m
+[0m  184 |     }[0m
+[0m  185 |[0m
+[0m> 186 |     const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => ([0m
+[0m      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 187 |         <Card variant="outlined" sx={{ height: '100%' }}>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 188 |             <CardContent>[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 201 |         </Card>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 202 |     );[0m
+[0m      | ^^^^^^ The component is created during render here[0m
+[0m  203 |[0m
+[0m  204 |     return ([0m
+[0m  205 |         <Box sx={{ flexGrow: 1 }}>                                    [2mreact-hooks/static-components[22m[0m
+[0m  [2m254:22[22m  [31merror[39m  Error: Cannot create components during render[0m
+[0m[0m
+[0mComponents created during render will reset their state each time they are created. Declare components outside of render.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:254:22[0m
+[0m  252 |                 </Grid>[0m
+[0m  253 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m> 254 |                     <StatsCard title="AVG WIN" value={avgWin} highlight />[0m
+[0m      |                      ^^^^^^^^^ This component is created during render[0m
+[0m  255 |                 </Grid>[0m
+[0m  256 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m  257 |                     <StatsCard title="AVG LOSS" value={avgLoss} highlight />[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:186:23[0m
+[0m  184 |     }[0m
+[0m  185 |[0m
+[0m> 186 |     const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => ([0m
+[0m      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 187 |         <Card variant="outlined" sx={{ height: '100%' }}>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 188 |             <CardContent>[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 201 |         </Card>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 202 |     );[0m
+[0m      | ^^^^^^ The component is created during render here[0m
+[0m  203 |[0m
+[0m  204 |     return ([0m
+[0m  205 |         <Box sx={{ flexGrow: 1 }}>                                                                                     [2mreact-hooks/static-components[22m[0m
+[0m  [2m257:22[22m  [31merror[39m  Error: Cannot create components during render[0m
+[0m[0m
+[0mComponents created during render will reset their state each time they are created. Declare components outside of render.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:257:22[0m
+[0m  255 |                 </Grid>[0m
+[0m  256 |                 <Grid size={{ xs: 12, md: 3 }}>[0m
+[0m> 257 |                     <StatsCard title="AVG LOSS" value={avgLoss} highlight />[0m
+[0m      |                      ^^^^^^^^^ This component is created during render[0m
+[0m  258 |                 </Grid>[0m
+[0m  259 |             </Grid>[0m
+[0m  260 |[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\Dashboard.tsx:186:23[0m
+[0m  184 |     }[0m
+[0m  185 |[0m
+[0m> 186 |     const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => ([0m
+[0m      |                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 187 |         <Card variant="outlined" sx={{ height: '100%' }}>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 188 |             <CardContent>[0m
+[0m      …[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 201 |         </Card>[0m
+[0m      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+[0m> 202 |     );[0m
+[0m      | ^^^^^^ The component is created during render here[0m
+[0m  203 |[0m
+[0m  204 |     return ([0m
+[0m  205 |         <Box sx={{ flexGrow: 1 }}>                                                                                                                                                                                            [2mreact-hooks/static-components[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx[24m[0m
+[0m  [2m100:24[22m  [33mwarning[39m  Compilation Skipped: Use of incompatible library[0m
+[0m[0m
+[0mThis API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.[0m
+[0m[0m
+[0mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\pages\TradeForm.tsx:100:24[0m
+[0m   98 |     });[0m
+[0m   99 |[0m
+[0m> 100 |     const entryPrice = watch('entryPrice');[0m
+[0m      |                        ^^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.[0m
+[0m  101 |     const stopLoss = watch('stopLoss');[0m
+[0m  102 |     const target = watch('target');[0m
+[0m  103 |     const side = watch('side');  [2mreact-hooks/incompatible-library[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\services\ExpenseSyncService.ts[24m[0m
+[0m   [2m92:15[22m  [31merror[39m  Unexpected aliasing of 'this' to local variable  [2m@typescript-eslint/no-this-alias[22m[0m
+[0m  [2m120:48[22m  [31merror[39m  Unexpected any. Specify a different type         [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m120:54[22m  [31merror[39m  Unexpected any. Specify a different type         [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m126:31[22m  [31merror[39m  Unexpected any. Specify a different type         [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\services\MarketDataService.ts[24m[0m
+[0m  [2m20:16[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[4mC:\Users\phani\.gemini\antigravity\scratch\trading-journal\src\services\SyncService.ts[24m[0m
+[0m  [2m154:48[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m154:54[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m  [2m161:31[22m  [31merror[39m  Unexpected any. Specify a different type  [2m@typescript-eslint/no-explicit-any[22m[0m
+[0m[0m
+[0m[31m[1m✖ 27 problems (25 errors, 2 warnings)[22m[39m[0m
+[0m[31m[1m[22m[39m[0m

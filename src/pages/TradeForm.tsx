@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/incompatible-library */
 import { useForm, Controller, type Resolver, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';

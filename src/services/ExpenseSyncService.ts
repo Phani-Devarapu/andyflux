@@ -89,6 +89,7 @@ class ExpenseSyncService {
     }
 
     setupHooks(uid: string) {
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         const self = this;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         localDb.expenses.hook('creating', function (this: any, _primKey, obj) {
@@ -117,12 +118,14 @@ class ExpenseSyncService {
         try {
             if (!auth.currentUser) return;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizeForFirestore = (obj: any): any => {
                 if (obj === undefined || obj === null) return null;
                 if (typeof obj !== 'object') return obj;
                 if (obj instanceof Date) return obj;
                 if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const newObj: any = {};
                 for (const key in obj) {
                     const val = obj[key];

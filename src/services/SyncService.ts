@@ -151,6 +151,7 @@ class SyncService {
             // Alternative: Just use the ID if available. 
             if (!auth.currentUser) return;
 
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const sanitizeForFirestore = (obj: any): any => {
                 if (obj === undefined) return null; // or could delete
                 if (obj === null) return null;
@@ -158,6 +159,7 @@ class SyncService {
                 if (obj instanceof Date) return obj;
                 if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const newObj: any = {};
                 for (const key in obj) {
                     const val = obj[key];

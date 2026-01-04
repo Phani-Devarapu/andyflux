@@ -8,7 +8,8 @@ import {
     Title,
     Tooltip,
     Filler,
-    type ScriptableContext
+    type ScriptableContext,
+    type ChartDataset
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 import { useTheme, alpha } from '@mui/material';
@@ -69,7 +70,9 @@ export function EquityChart({ trades, unrealizedPnL }: EquityChartProps) {
 
         // 4. Append Unrealized PnL (Projected)
         // Only if we have specific value
-        const datasets: any[] = [];
+        // 4. Append Unrealized PnL (Projected)
+        // Only if we have specific value
+        const datasets: ChartDataset<'line'>[] = [];
 
         // Add Realized Equity only if we have data points
         if (dataPoints.length > 0) {

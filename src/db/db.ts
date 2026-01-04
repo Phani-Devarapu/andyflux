@@ -20,7 +20,6 @@ export class TradingJournalDatabase extends Dexie {
         }).upgrade(tx => {
             return tx.table('trades').toCollection().modify(trade => {
                 if (!trade.accountId) {
-                    // @ts-ignore - 'trading' was the old default, mapping to 'TFSA' or keeping as string if Dexie allows. 
                     // Let's set it to 'TFSA' as a safe default for now, or 'NON_REGISTERED' which might be closer to 'General Trading'.
                     // Given user request for TFSA/FHSA/NON_REGISTERED, let's use NON_REGISTERED as the generic fallback.
                     trade.accountId = 'NON_REGISTERED';

@@ -33,7 +33,7 @@ import { useAuth } from '../../context/AuthContext';
 import { AuthDialog } from '../auth/AuthDialog';
 import { DataManagementDialog } from '../settings/DataManagementDialog';
 import { useColorMode } from '../../context/ColorModeContext';
-import { useAccount } from '../../context/AccountContext';
+import { useAccount, type AccountType } from '../../context/AccountContext';
 import { useState } from 'react';
 import logo from '../../assets/logo.png';
 import { GoalsWidget } from '../widgets/GoalsWidget';
@@ -97,7 +97,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                             <Button
                                 fullWidth
                                 variant="outlined"
-                                onClick={(_) => {
+                                onClick={() => {
                                     // Using a Menu for a cleaner dropdown feel than native select
                                     // Or just use a Select. Let's use a nice Select.
                                 }}
@@ -116,7 +116,7 @@ export function Sidebar({ onClose }: SidebarProps) {
                             <Box sx={{ position: 'relative' }}>
                                 <select
                                     value={selectedAccount}
-                                    onChange={(e) => switchAccount(e.target.value as any)}
+                                    onChange={(e) => switchAccount(e.target.value as AccountType)}
                                     style={{
                                         width: '100%',
                                         padding: '10px',

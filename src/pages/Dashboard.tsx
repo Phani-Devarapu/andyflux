@@ -161,6 +161,7 @@ export function Dashboard() {
     const avgWin = wins.length > 0 ? wins.reduce((acc, t) => acc + (t.pnl || 0), 0) / wins.length : 0;
     const avgLoss = losses.length > 0 ? losses.reduce((acc, t) => acc + (t.pnl || 0), 0) / losses.length : 0;
 
+
     // Equity Curve Data
     // We now use EquityChart component which handles aggregation
 
@@ -175,36 +176,11 @@ export function Dashboard() {
             },
         ],
     };
-
-    interface StatsCardProps {
-        title: string;
-        value: string | number;
-        subValue?: string;
-        highlight?: boolean;
-    }
-
-    const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => (
-        <Card variant="outlined" sx={{ height: '100%' }}>
-            <CardContent>
-                <Typography variant="overline" color="text.secondary" fontWeight="bold" letterSpacing={1}>
-                    {title}
-                </Typography>
-                <Typography variant="h4" fontWeight="bold" color={highlight ? (typeof value === 'number' ? (value >= 0 ? 'success.main' : 'error.main') : 'text.primary') : 'text.primary'} sx={{ mt: 1 }}>
-                    {typeof value === 'number' && (title.includes('P/L') || title.includes('AVG')) ? formatCurrency(value) : value}
-                </Typography>
-                {subValue && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {subValue}
-                    </Typography>
-                )}
-            </CardContent>
-        </Card>
-    );
-
     return (
-        <Box sx={{ flexGrow: 1 }}>
+        <Box sx={{ flexGrow: 1 }} >
             {/* Premium Header */}
-            <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
+            < Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }
+            }>
                 <Box>
                     <Typography variant="h4" sx={{
                         fontWeight: 800,
@@ -240,10 +216,10 @@ export function Dashboard() {
                 >
                     New Trade
                 </Button>
-            </Box>
+            </Box >
 
             {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
+            < Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid size={{ xs: 12, md: 3 }}>
                     <StatsCard title="NET P/L" value={totalPnL} highlight />
                 </Grid>
@@ -256,10 +232,10 @@ export function Dashboard() {
                 <Grid size={{ xs: 12, md: 3 }}>
                     <StatsCard title="AVG LOSS" value={avgLoss} highlight />
                 </Grid>
-            </Grid>
+            </Grid >
 
             {/* Charts */}
-            <Grid container spacing={3}>
+            < Grid container spacing={3} >
                 <Grid size={{ xs: 12, lg: 8 }}>
                     <Card variant="outlined" sx={{ height: { xs: 300, md: 400 } }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -302,7 +278,32 @@ export function Dashboard() {
                         </CardContent>
                     </Card>
                 </Grid>
-            </Grid>
-        </Box>
+            </Grid >
+        </Box >
     );
 }
+
+interface StatsCardProps {
+    title: string;
+    value: string | number;
+    subValue?: string;
+    highlight?: boolean;
+}
+
+const StatsCard = ({ title, value, subValue, highlight }: StatsCardProps) => (
+    <Card variant="outlined" sx={{ height: '100%' }}>
+        <CardContent>
+            <Typography variant="overline" color="text.secondary" fontWeight="bold" letterSpacing={1}>
+                {title}
+            </Typography>
+            <Typography variant="h4" fontWeight="bold" color={highlight ? (typeof value === 'number' ? (value >= 0 ? 'success.main' : 'error.main') : 'text.primary') : 'text.primary'} sx={{ mt: 1 }}>
+                {typeof value === 'number' && (title.includes('P/L') || title.includes('AVG')) ? formatCurrency(value) : value}
+            </Typography>
+            {subValue && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {subValue}
+                </Typography>
+            )}
+        </CardContent>
+    </Card>
+);

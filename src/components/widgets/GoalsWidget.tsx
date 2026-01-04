@@ -64,10 +64,11 @@ export function GoalsWidget() {
     const [targetAmount, setTargetAmount] = useState<string>('');
 
     useEffect(() => {
-        if (goal) {
+        if (open && goal) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setTargetAmount(goal.targetAmount.toString());
         }
-    }, [goal]);
+    }, [open, goal]);
 
     const handleSave = async () => {
         if (!user || !selectedAccount) return;

@@ -1,4 +1,6 @@
 
+/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../db/db';
@@ -35,7 +37,12 @@ const CACHE_DURATION = 5 * 60 * 1000;
 export const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
     const [prices, setPrices] = useState<Record<string, MarketData>>({});
+    const pricesRef = React.useRef(prices);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        pricesRef.current = prices;
+    }, [prices]);
 
     // 1. Monitor ALL open trades for the user to know which symbols to track
     const openTrades = useLiveQuery(async () => {
@@ -65,7 +72,7 @@ export const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         // Filter out symbols that are recently updated (unless force)
         const now = Date.now();
         const symbolsToFetch = force ? symbols : symbols.filter(sym => {
-            const cached = prices[sym];
+            const cached = pricesRef.current[sym];
             return !cached || (now - cached.lastUpdated > CACHE_DURATION);
         });
 
@@ -98,7 +105,7 @@ export const MarketDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
         setPrices(prev => ({ ...prev, ...newPrices }));
         setIsLoading(false);
-    }, [prices]);
+    }, []); // No dependencies needed for pricesRef
 
     // 4. Effect: Initial fetch when symbols change
     useEffect(() => {

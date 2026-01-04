@@ -17,7 +17,7 @@ interface YahooPriceResponse {
                 }>;
             };
         }>;
-        error: any;
+        error: unknown;
     };
 }
 
