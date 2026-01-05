@@ -1,26 +1,29 @@
 import { Link } from 'react-router-dom';
-import { useLiveQuery } from 'dexie-react-hooks';
+// import { useLiveQuery } from 'dexie-react-hooks'; // Removed
 import * as React from 'react';
-import { db } from '../db/db';
+// import { db } from '../db/db'; // Removed
 import { useMarketData } from '../context/MarketDataContext';
+import { useTrades } from '../context/TradesContext';
 import {
     Chart as ChartJS,
     CategoryScale,
-    LinearScale,
-    PointElement,
-    LineElement,
     Title,
     Tooltip,
     Legend,
     ArcElement,
     BarElement,
+    LinearScale,
+    PointElement,
+    LineElement,
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import { formatCurrency } from '../utils/calculations';
 import { Grid, Card, CardContent, Typography, Box, useTheme, Skeleton, Button, Stack } from '@mui/material';
 import { BarChart3, PlusCircle } from 'lucide-react';
 import { EquityChart } from '../components/charts/EquityChart';
+import { useAuth } from '../context/AuthContext';
 
+// Register ChartJS components
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -33,16 +36,11 @@ ChartJS.register(
     ArcElement
 );
 
-import { useAccount } from '../context/AccountContext';
-import { useAuth } from '../context/AuthContext';
-
 export function Dashboard() {
-    const { selectedAccount } = useAccount();
+    // const { selectedAccount } = useAccount(); // Unused in this component
     const { user } = useAuth();
-    const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user) return [];
-        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
-    }, [selectedAccount, user]);
+    // Use TradesContext (already filtered by selectedAccount)
+    const { trades, loading } = useTrades();
     const theme = useTheme();
 
     const { prices } = useMarketData();
@@ -81,7 +79,7 @@ export function Dashboard() {
         setUnrealizedPnL(total);
     }, [trades, prices]);
 
-    if (!trades) {
+    if (loading) {
         return (
             <Grid container spacing={3}>
                 {[1, 2, 3, 4].map(i => (

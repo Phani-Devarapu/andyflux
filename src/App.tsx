@@ -1,8 +1,7 @@
-import { useMemo, useEffect } from 'react';
+import { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { syncService } from './services/SyncService';
-import { expenseSyncService } from './services/ExpenseSyncService';
+import { TradesProvider } from './context/TradesContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { Dashboard } from './pages/Dashboard';
 import { TradeList } from './pages/TradeList';
@@ -55,19 +54,14 @@ function AppContent() {
 }
 
 function App() {
-  useEffect(() => {
-    syncService.init();
-    expenseSyncService.init();
-    return () => {
-      syncService.dispose();
-      expenseSyncService.dispose();
-    }
-  }, []);
+  // Cloud Sync Services are removed in favor of direct Firestore hooks.
 
   return (
     <AccountProvider>
       <ColorModeProvider>
-        <AppContent />
+        <TradesProvider>
+          <AppContent />
+        </TradesProvider>
       </ColorModeProvider>
     </AccountProvider>
   );

@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
-import { db } from '../db/db';
+// import { db } from '../db/db'; // Removed
+
 import type { Trade } from '../types/trade';
 import { getBrokerAdapters, detectBroker, type BrokerName } from './brokerAdapters';
 import { calculatePnL, calculatePnLPercent } from './calculations';
@@ -42,15 +43,37 @@ export const importFromJson = async (file: File, userId: string) => {
                 const data = JSON.parse(text);
                 if (Array.isArray(data)) {
                     // Validate and parse dates
-                    const trades = data.map((t: Trade) => ({
-                        ...t,
-                        userId, // Force userId to current user
-                        date: new Date(t.date),
-                        createdAt: new Date(t.createdAt),
-                        updatedAt: new Date(t.updatedAt),
-                    }));
+                    const trades = data.map((t: Trade) => {
+                        const { id, ...rest } = t; // Exclude ID
+                        return {
+                            ...rest,
+                            userId, // Force userId to current user
+                            date: new Date(t.date),
+                            createdAt: new Date(t.createdAt),
+                            updatedAt: new Date(t.updatedAt),
+                        };
+                    });
 
-                    await db.trades.bulkPut(trades);
+                    // Firestore Batch Write
+                    const { writeBatch, doc: firestoreDoc, collection } = await import('firebase/firestore');
+                    const { db: firestoreDb } = await import('../utils/firebase');
+
+                    const batchSize = 450;
+                    const chunks = [];
+                    for (let i = 0; i < trades.length; i += batchSize) {
+                        chunks.push(trades.slice(i, i + batchSize));
+                    }
+
+                    for (const chunk of chunks) {
+                        const batch = writeBatch(firestoreDb);
+                        const collectionRef = collection(firestoreDb, 'users', userId, 'trades');
+                        chunk.forEach(trade => {
+                            const newDocRef = firestoreDoc(collectionRef);
+                            batch.set(newDocRef, trade);
+                        });
+                        await batch.commit();
+                    }
+
                     resolve();
                 } else {
                     reject('Invalid format');
@@ -329,9 +352,35 @@ export const importFromCsv = async (
 
                     const successCount = trades.length;
 
-                    // Bulk add trades to database
+                    // Bulk add trades to database (Firestore)
                     if (trades.length > 0) {
-                        await db.trades.bulkAdd(trades);
+                        try {
+                            const { writeBatch, doc: firestoreDoc, collection } = await import('firebase/firestore');
+                            const { db: firestoreDb } = await import('../utils/firebase');
+
+                            // Firestore batches are limited to 500 operations
+                            const batchSize = 450;
+                            const chunks = [];
+                            for (let i = 0; i < trades.length; i += batchSize) {
+                                chunks.push(trades.slice(i, i + batchSize));
+                            }
+
+                            for (const chunk of chunks) {
+                                const batch = writeBatch(firestoreDb);
+                                const collectionRef = collection(firestoreDb, 'users', userId, 'trades');
+
+                                chunk.forEach(trade => {
+                                    // Let Firestore generate ID
+                                    const newDocRef = firestoreDoc(collectionRef);
+                                    batch.set(newDocRef, trade);
+                                });
+                                await batch.commit();
+                            }
+                        } catch (err) {
+                            console.error("Firestore batch write failed", err);
+                            // Re-throw to be caught by outer catch
+                            throw err;
+                        }
                     }
 
                     resolve({

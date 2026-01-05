@@ -15,8 +15,10 @@ import {
     Box
 } from '@mui/material';
 import { useAuth } from '../../context/AuthContext';
-import { syncService } from '../../services/SyncService';
+// import { syncService } from '../../services/SyncService'; // Removed
 import { Trash2 } from 'lucide-react';
+import { db } from '../../utils/firebase';
+import { collection, query, where, getDocs, writeBatch } from 'firebase/firestore';
 
 interface DataManagementDialogProps {
     open: boolean;
@@ -39,8 +41,45 @@ export function DataManagementDialog({ open, onClose }: DataManagementDialogProp
         setLoading(true);
         setMessage(null);
         try {
-            await syncService.deleteTradesByMonth(user.uid, year, month);
-            setMessage({ type: 'success', text: `Trades for ${month}/${year} deleted successfully. Reloading...` });
+            // Calculate date range
+            const startDate = new Date(year, month - 1, 1);
+            const endDate = new Date(year, month, 0, 23, 59, 59);
+
+            // Query Firestore
+            const tradesRef = collection(db, 'users', user.uid, 'trades');
+            const q = query(
+                tradesRef,
+                where('date', '>=', startDate),
+                where('date', '<=', endDate)
+            );
+
+            const snapshot = await getDocs(q);
+            if (snapshot.empty) {
+                setMessage({ type: 'success', text: 'No trades found for this period.' });
+                setLoading(false);
+                return;
+            }
+
+            // Batch Delete
+            // const batch = writeBatch(db);
+            const MAX_BATCH_SIZE = 450;
+
+            // We might need multiple batches if > 500
+            const chunks = [];
+            const docs = snapshot.docs;
+            for (let i = 0; i < docs.length; i += MAX_BATCH_SIZE) {
+                chunks.push(docs.slice(i, i + MAX_BATCH_SIZE));
+            }
+
+            for (const chunk of chunks) {
+                const chunkBatch = writeBatch(db);
+                chunk.forEach(doc => {
+                    chunkBatch.delete(doc.ref);
+                });
+                await chunkBatch.commit();
+            }
+
+            setMessage({ type: 'success', text: `Deleted ${snapshot.size} trades for ${month}/${year}. Reloading...` });
             setTimeout(() => window.location.reload(), 1000);
         } catch (error) {
             console.error(error);
@@ -135,23 +174,38 @@ export function DataManagementDialog({ open, onClose }: DataManagementDialogProp
                                 setLoading(true);
                                 setMessage(null);
                                 try {
-                                    // wrapper to allow timeout
-                                    const deletePromise = syncService.deleteAllTrades(user.uid);
-                                    const timeoutPromise = new Promise((_, reject) =>
-                                        setTimeout(() => reject(new Error('Operation timed out')), 60000)
-                                    );
+                                    // Query ALL trades
+                                    const tradesRef = collection(db, 'users', user.uid, 'trades');
+                                    const snapshot = await getDocs(tradesRef);
 
-                                    await Promise.race([deletePromise, timeoutPromise]);
+                                    if (snapshot.empty) {
+                                        setMessage({ type: 'success', text: 'No trades to delete.' });
+                                        setLoading(false);
+                                        return;
+                                    }
+
+                                    const MAX_BATCH_SIZE = 450;
+                                    const docs = snapshot.docs;
+                                    const chunks = [];
+                                    for (let i = 0; i < docs.length; i += MAX_BATCH_SIZE) {
+                                        chunks.push(docs.slice(i, i + MAX_BATCH_SIZE));
+                                    }
+
+                                    for (const chunk of chunks) {
+                                        const chunkBatch = writeBatch(db);
+                                        chunk.forEach(doc => {
+                                            chunkBatch.delete(doc.ref);
+                                        });
+                                        await chunkBatch.commit();
+                                    }
+
                                     setMessage({ type: 'success', text: 'All trade data has been permanently deleted. Reloading...' });
-                                    // Force reload to clear any in-memory state or cache
                                     setTimeout(() => window.location.reload(), 1000);
                                 } catch (error) {
                                     console.error(error);
                                     setMessage({
                                         type: 'error',
-                                        text: error instanceof Error && error.message === 'Operation timed out'
-                                            ? 'The operation took too long. Please refresh and check if data was deleted.'
-                                            : 'Failed to delete data. Please try again.'
+                                        text: 'Failed to delete data. Please try again.'
                                     });
                                 } finally {
                                     setLoading(false);

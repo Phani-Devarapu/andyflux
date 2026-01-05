@@ -1,5 +1,5 @@
 export interface StoredDocument {
-    id?: number;
+    id?: string;
     userId: string;
     accountId: string;
     name: string;

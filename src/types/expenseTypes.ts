@@ -1,7 +1,7 @@
 export type RecurringFrequency = 'monthly' | 'yearly';
 
 export interface Expense {
-    id?: number;
+    id?: string;
     userId: string;
     accountId: string; // TFSA, FHSA, etc.
     date: Date;
@@ -18,7 +18,7 @@ export interface Expense {
 }
 
 export interface RecurringExpenseRule {
-    id?: number;
+    id?: string;
     userId: string;
     accountId: string;
     category: string;

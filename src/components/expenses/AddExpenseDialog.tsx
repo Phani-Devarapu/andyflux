@@ -19,12 +19,12 @@ import {
 } from '@mui/material';
 import { DollarSign, RefreshCw } from 'lucide-react';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../../types/expenseTypes';
-import { expenseDb } from '../../db/expenseDb';
 import { getCategoryIcon } from '../../utils/categoryIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
 import { format } from 'date-fns';
-import { RecurringExpenseService } from '../../services/RecurringExpenseService';
+import { db } from '../../utils/firebase';
+import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -90,7 +90,7 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
             // Parse date string back to Date object (noon to avoid timezone shift issues on simple dates)
             const dateObj = new Date(data.date + 'T12:00:00');
 
-            const expenseData: Expense = {
+            const expenseData: Record<string, any> = {
                 userId: user.uid,
                 accountId: selectedAccount,
                 date: dateObj,
@@ -98,21 +98,27 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
                 category: data.category,
                 description: data.description,
                 isRecurring: data.isRecurring,
-                frequency: data.isRecurring ? data.frequency : undefined,
                 updatedAt: new Date(),
-                createdAt: editExpense?.createdAt || new Date() // Keep original creation date if editing
+                createdAt: editExpense?.createdAt || new Date()
             };
 
-            if (editExpense?.id) {
-                await expenseDb.expenses.update(editExpense.id, expenseData);
-                // Note: Updating a recurring expense's rule is a separate feature ("Manage Subscriptions")
-                // We could implement rule updates here too if we linked expense->ruleId
+            if (data.isRecurring) {
+                expenseData.frequency = data.frequency;
+            }
+
+            if (editExpense && editExpense.id) {
+                // Update Firestore doc
+                await updateDoc(doc(db, 'users', user.uid, 'expenses', editExpense.id.toString()), expenseData as any);
+                // Note: Updating a recurring expense's rule is disabled in cloud mode for now.
             } else {
-                await expenseDb.expenses.add(expenseData);
+                // Add to Firestore
+                await addDoc(collection(db, 'users', user.uid, 'expenses'), expenseData as any);
 
                 // If adding a new expense and it's recurring, CREATE A RULE
                 if (expenseData.isRecurring) {
-                    await RecurringExpenseService.createRuleFromExpense(expenseData);
+                    // RecurringExpenseService.createRuleFromExpense(expenseData);
+                    // TODO: Cloud Function trigger for recurring expenses
+                    console.log("Recurring rule creation skipped (Cloud Mode)");
                 }
             }
 

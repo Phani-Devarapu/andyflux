@@ -8,7 +8,7 @@ interface ExpenseCardProps {
     expense: Expense;
     category?: ExpenseCategory;
     onEdit: (expense: Expense) => void;
-    onDelete: (id: number) => void;
+    onDelete: (id: string) => void;
 }
 
 export function ExpenseCard({ expense, category, onEdit, onDelete }: ExpenseCardProps) {

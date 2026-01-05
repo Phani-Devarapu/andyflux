@@ -6,7 +6,7 @@ export type WinLoss = 'Win' | 'Loss' | 'Breakeven' | 'Open';
 import { type AccountType } from '../context/AccountContext';
 
 export interface Trade {
-    id?: number;
+    id?: string;
     userId: string;
     accountId: AccountType;
     date: Date;

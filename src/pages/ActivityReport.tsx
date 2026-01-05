@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+
 import {
     Box,
     Typography,
@@ -55,15 +55,18 @@ import {
 } from 'chart.js';
 import { Bar, Chart, Doughnut } from 'react-chartjs-2';
 
-import { db } from '../db/db';
+// import { db } from '../db/db'; // Removed
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { formatCurrency } from '../utils/calculations';
 import { documentService } from '../services/DocumentService';
 import { importFromCsv } from '../utils/importExport';
 import type { StoredDocument } from '../types/document';
-import { expenseDb } from '../db/expenseDb';
+// import { expenseDb } from '../db/expenseDb'; // Removed
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types/expenseTypes';
+import { useTrades } from '../context/TradesContext';
+import { useFirestoreDocuments } from '../hooks/useFirestoreDocuments';
+import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
 
 
 // Register ChartJS components
@@ -110,7 +113,7 @@ import { useMarketData } from '../context/MarketDataContext';
 export function ActivityReport() {
     const { user } = useAuth();
     const { selectedAccount } = useAccount();
-    const { prices } = useMarketData(); // Consumer global market data
+    const { prices } = useMarketData();
 
     const [year, setYear] = useState(new Date().getFullYear());
     const [selectedPeriod, setSelectedPeriod] = useState(new Date().getMonth() + 1);
@@ -125,32 +128,21 @@ export function ActivityReport() {
     const [uploadError, setUploadError] = useState<string | null>(null);
 
     // Fetch Trades
-    const rawTrades = useLiveQuery(async () => {
-        if (!user || !selectedAccount) return [];
-        return await db.trades
-            .where('[userId+accountId]')
-            .equals([user.uid, selectedAccount])
-            .toArray();
-    }, [user, selectedAccount]);
+    const { trades: rawTrades } = useTrades();
 
     // Fetch Documents
-    const documents = useLiveQuery(async () => {
-        if (!user || !selectedAccount) return [];
-        return await db.documents
-            .where('[userId+accountId]')
-            .equals([user.uid, selectedAccount])
-            .reverse()
-            .sortBy('createdAt');
-    }, [user, selectedAccount]);
+    const { documents: allDocuments } = useFirestoreDocuments();
+    const documents = useMemo(() => {
+        if (!selectedAccount) return [];
+        return allDocuments.filter(d => d.accountId === selectedAccount);
+    }, [allDocuments, selectedAccount]);
 
     // Fetch Expenses (for Personal Account)
-    const rawExpenses = useLiveQuery(async () => {
-        if (!user || !selectedAccount || selectedAccount !== 'PERSONAL') return [];
-        return await expenseDb.expenses
-            .where('[userId+accountId]')
-            .equals([user.uid, selectedAccount])
-            .toArray();
-    }, [user, selectedAccount]);
+    const { expenses: allExpenses } = useFirestoreExpenses();
+    const rawExpenses = useMemo(() => {
+        if (!selectedAccount || selectedAccount !== 'PERSONAL') return [];
+        return allExpenses.filter(e => e.accountId === selectedAccount);
+    }, [allExpenses, selectedAccount]);
 
     // Filter Trades by Period
     const filteredTrades = useMemo(() => {
@@ -497,9 +489,9 @@ export function ActivityReport() {
 
     const handleDeleteDoc = async (doc: StoredDocument) => {
         if (!confirm(`Delete ${doc.name}? This will NOT delete the imported trades, only the file record.`)) return;
-        if (!doc.id) return;
+        if (!doc.id || !user) return;
         try {
-            await documentService.deleteDocument(doc.id, doc.storagePath);
+            await documentService.deleteDocument(doc.id, doc.storagePath, user.uid);
         } catch {
             alert('Error deleting file');
         }

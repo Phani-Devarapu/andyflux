@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Box, Typography, Button, Container, Grid, Fab, useTheme } from '@mui/material';
 import { Plus, Wallet } from 'lucide-react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { expenseDb } from '../db/expenseDb';
+// import { useLiveQuery } from 'dexie-react-hooks'; // Removed
+// import { expenseDb } from '../db/expenseDb'; // Removed
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { ExpenseStats } from '../components/expenses/ExpenseStats';
@@ -10,8 +10,11 @@ import { SubscriptionList } from '../components/expenses/SubscriptionList';
 import { ExpenseCard } from '../components/expenses/ExpenseCard';
 import { AddExpenseDialog } from '../components/expenses/AddExpenseDialog';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../types/expenseTypes';
-import { RecurringExpenseService } from '../services/RecurringExpenseService';
-import { useEffect } from 'react';
+// import { RecurringExpenseService } from '../services/RecurringExpenseService'; // Removed
+import { useMemo } from 'react';
+import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
+import { deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../utils/firebase';
 
 export function ExpenseManagerPage() {
     const { user } = useAuth();
@@ -20,35 +23,31 @@ export function ExpenseManagerPage() {
     const [openAdd, setOpenAdd] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
-    // Check for recurring expenses on mount
-    useEffect(() => {
-        if (user) {
-            RecurringExpenseService.checkAndGenerateExpenses().catch(console.error);
-        }
-    }, [user]);
+    // Fetch expenses from Firestore hook
+    const { expenses: allExpenses, loading } = useFirestoreExpenses();
 
-    // Fetch expenses LIVE from Dexie
-    const expenses = useLiveQuery(
-        async () => {
-            if (!user) return [];
-            const all = await expenseDb.expenses
-                .where('[userId+accountId]')
-                .equals([user.uid, selectedAccount])
-                .reverse() // Newest first
-                .sortBy('date');
-            return all;
-        },
-        [user, selectedAccount]
-    );
+    const expenses = useMemo(() => {
+        if (!user || !selectedAccount) return [];
+        // Helper to check if expense matches account.
+        // Assuming user-bound expenses are also account-bound.
+        return allExpenses.filter(e => e.accountId === selectedAccount);
+    }, [allExpenses, user, selectedAccount]);
 
     const handleEdit = (expense: Expense) => {
         setEditingExpense(expense);
         setOpenAdd(true);
     };
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (id: number | string) => {
+        if (!user) return;
         if (window.confirm('Are you sure you want to delete this expense?')) {
-            await expenseDb.expenses.delete(id);
+            try {
+                // Determine ID type (Firestore uses string)
+                await deleteDoc(doc(db, 'users', user.uid, 'expenses', id.toString()));
+            } catch (err) {
+                console.error("Delete failed", err);
+                alert("Failed to delete expense");
+            }
         }
     };
 
@@ -57,7 +56,7 @@ export function ExpenseManagerPage() {
         setEditingExpense(null);
     };
 
-    if (!expenses) return null; // Loading state could be added
+    if (loading) return null; // Or a loading spinner
 
     return (
         <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, pb: { xs: 12, md: 10 } }}>

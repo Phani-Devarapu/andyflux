@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { db } from '../db/db';
+// db import removed
 import { Link } from 'react-router-dom';
 import {
     DataGrid,
@@ -34,12 +34,12 @@ import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { TradeDetailsDialog } from '../components/TradeDetailsDialog';
 import type { Trade } from '../types/trade';
 import { useMarketData } from '../context/MarketDataContext';
-import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
+import { useTrades } from '../context/TradesContext';
 
 export function TradeList() {
     const { selectedAccount } = useAccount();
     const { user } = useAuth();
-    const { prices } = useMarketData(); // Use global market data
+    const { prices } = useMarketData();
 
     const [paginationModel, setPaginationModel] = useState({
         pageSize: 10,
@@ -54,14 +54,11 @@ export function TradeList() {
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Firestore Hook
-    const { trades: firestoreTrades, loading: firestoreLoading } = useFirestoreTrades();
-    const trades = firestoreTrades; // alias for compatibility
-    const isLoading = firestoreLoading;
-    const totalCount = trades.length; // Client-side pagination for now
+    // Use TradesContext
+    const { trades, loading: isLoading, deleteTrade } = useTrades();
+    const totalCount = trades.length;
 
-    // Client-side pagination logic since we fetch all for this account
-    // (Firestore pagination is complex, fetching all < 2000 trades is fine for MVP)
+    // Client-side pagination logic
     const paginatedTrades = trades.slice(
         paginationModel.page * paginationModel.pageSize,
         (paginationModel.page + 1) * paginationModel.pageSize
@@ -69,13 +66,8 @@ export function TradeList() {
 
     const handleDelete = async (id: number | string) => {
         if (!window.confirm('Are you sure you want to delete this trade?')) return;
-        if (!user) return;
-
         try {
-            const { deleteDoc, doc } = await import('firebase/firestore');
-            const { db: remoteDb } = await import('../utils/firebase');
-            await deleteDoc(doc(remoteDb, 'users', user.uid, 'trades', id.toString()));
-            // No need to manual refresh, onSnapshot handles it!
+            await deleteTrade(id.toString());
         } catch (err) {
             console.error("Delete failed", err);
             alert("Failed to delete trade");
@@ -372,9 +364,8 @@ export function TradeList() {
                     <Button
                         variant="outlined"
                         onClick={async () => {
-                            const allTrades = await db.trades.toArray();
                             const { exportToCsv } = await import('../utils/importExport');
-                            exportToCsv(allTrades);
+                            exportToCsv(trades);
                         }}
                         startIcon={<CloudDownload />}
                     >

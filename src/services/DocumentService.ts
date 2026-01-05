@@ -1,12 +1,12 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject, listAll } from 'firebase/storage';
-import { storage } from '../utils/firebase';
-import { db } from '../db/db';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { storage, db } from '../utils/firebase';
+import { collection, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import type { StoredDocument } from '../types/document';
 
 export class DocumentService {
 
     /**
-     * Upload a file to Firebase Storage and save metadata to local DB
+     * Upload a file to Firebase Storage and save metadata to Firestore
      */
     async uploadDocument(userId: string, accountId: string, file: File): Promise<StoredDocument> {
         const timestamp = Date.now();
@@ -15,7 +15,7 @@ export class DocumentService {
         const storageRef = ref(storage, storagePath);
 
         // 1. Create metadata record
-        const doc: StoredDocument = {
+        const documentData: StoredDocument = {
             userId,
             accountId,
             name: file.name,
@@ -23,31 +23,27 @@ export class DocumentService {
             size: file.size,
             storagePath,
             createdAt: new Date(),
-            synced: false // Initially false
+            synced: false // Initially false until upload completes
         };
 
-        // 2. Save to Local DB (Optimistic)
-        // We do this FIRST so the user sees the file immediately, even if upload is slow.
-        const id = await db.documents.add(doc);
-        const savedDoc = { ...doc, id };
+        // 2. Save to Firestore (Optimistic)
+        const docRef = await addDoc(collection(db, 'users', userId, 'documents'), documentData);
+        const savedDoc = { ...documentData, id: docRef.id };
 
         // 3. Upload to Firebase Storage
-        // We still await this so the UI knows when sync is done, but the record is already safe locally.
         try {
             await uploadBytes(storageRef, file);
-            // 4. Update Local DB to confirm sync
-            await db.documents.update(id, { synced: true });
+            // 4. Update Firestore to confirm sync
+            await updateDoc(docRef, { synced: true });
             savedDoc.synced = true;
         } catch (error) {
-            console.error('Cloud upload failed, but local record saved:', error);
-            // We re-throw so the UI can show the "Upload failed/timed out" warning if needed,
-            // or we could suppress it if we want "Offline Mode" behavior.
-            // Given the user wants to see the file, returning the doc is priority. 
-            // But let's throw so the "timeout/race" logic in UI still works to warn the user about network issues.
+            console.error('Cloud upload failed, but record saved:', error);
+            // Update Firestore to indicate failure? Or just leave as synced: false
             throw error;
         }
 
-        return savedDoc;
+        // Return with string ID (Firestore ID)
+        return savedDoc as any as StoredDocument;
     }
 
     /**
@@ -59,9 +55,9 @@ export class DocumentService {
     }
 
     /**
-     * Delete document from Storage and Local DB
+     * Delete document from Storage and Firestore
      */
-    async deleteDocument(id: number, storagePath: string) {
+    async deleteDocument(id: string, storagePath: string, userId: string) {
         // 1. Delete from Storage
         const storageRef = ref(storage, storagePath);
         try {
@@ -70,42 +66,8 @@ export class DocumentService {
             console.warn('Error deleting from storage (might already be gone):', error);
         }
 
-        // 2. Delete from Local DB
-        await db.documents.delete(id);
-    }
-
-    /**
-     * Sync function to populate local DB from Storage (Simple one-way sync for now)
-     * This is useful if the user logs in on a new device.
-     */
-    async syncFromStorage(userId: string, accountId: string) {
-        const listRef = ref(storage, `users/${userId}/documents/`);
-        const res = await listAll(listRef);
-
-        const existingDocs = await db.documents
-            .where('[userId+accountId]')
-            .equals([userId, accountId])
-            .toArray();
-
-        const existingPaths = new Set(existingDocs.map(d => d.storagePath));
-
-        for (const itemRef of res.items) {
-            if (!existingPaths.has(itemRef.fullPath)) {
-                // Determine metadata (limited info available from listAll)
-                // We fake some details or fetch metadata if needed. 
-                // For now, let's just make it visible.
-                const newDoc: StoredDocument = {
-                    userId,
-                    accountId,
-                    name: itemRef.name.split('_').slice(1).join('_') || itemRef.name, // Remove timestamp prefix
-                    type: 'application/octet-stream', // Unknown
-                    size: 0, // Unknown without getting metadata
-                    storagePath: itemRef.fullPath,
-                    createdAt: new Date()
-                };
-                await db.documents.add(newDoc);
-            }
-        }
+        // 2. Delete from Firestore
+        await deleteDoc(doc(db, 'users', userId, 'documents', id));
     }
 }
 
