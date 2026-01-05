@@ -219,8 +219,9 @@ class SyncService {
             console.debug(`Deleting trades for ${month}/${year}...`);
 
             // 1. Calculate Date Range
-            const startDate = new Date(year, month - 1, 1);
-            const endDate = new Date(year, month, 0, 23, 59, 59, 999); // Last day of month
+            // 1. Calculate Date Range (Use UTC to match TradeForm's UTC storage)
+            const startDate = new Date(Date.UTC(year, month - 1, 1));
+            const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
 
             // 2. Find IDs in Local DB
             const tradesToDelete = await localDb.trades
@@ -268,6 +269,84 @@ class SyncService {
 
         } catch (error) {
             console.error('Error in bulk delete:', error);
+            throw error;
+        } finally {
+            this.isSyncing = false;
+        }
+    }
+
+    // Delete ALL Trades
+    async deleteAllTrades(uid: string) {
+        if (!auth.currentUser) return;
+        this.isSyncing = true;
+        try {
+            console.debug('Starting optimized wipe of trade data...');
+
+            // 1. "Blind Delete" - Use Local IDs to delete Remote docs without downloading them.
+            // This avoids downloading heavy base64 images just to delete the document.
+            const localKeys = await localDb.trades.toCollection().primaryKeys();
+
+            if (localKeys.length > 0) {
+                console.debug(`Attempting blind delete of ${localKeys.length} known local items from cloud...`);
+                const { writeBatch } = await import('firebase/firestore');
+
+                // Chunk local keys
+                const chunkSize = 400;
+                for (let i = 0; i < localKeys.length; i += chunkSize) {
+                    const chunk = localKeys.slice(i, i + chunkSize);
+                    const batch = writeBatch(remoteDb);
+                    const tradesRef = collection(remoteDb, 'users', uid, 'trades');
+
+                    chunk.forEach(key => {
+                        const docRef = doc(tradesRef, key.toString());
+                        batch.delete(docRef);
+                    });
+
+                    await batch.commit();
+                }
+                console.debug('Blind delete complete.');
+            }
+
+            // 2. Nuclear Wipe Local DB
+            await localDb.trades.clear();
+            console.debug('Local database trades table cleared.');
+
+            // 3. Remote Cleanup (The "Stragglers" Check)
+            // Now we check if anything remains in the cloud (data that wasn't on this device).
+            // Since we deleted most things blindly, this fetch should be small/empty and fast.
+            const tradesRef = collection(remoteDb, 'users', uid, 'trades');
+            const snapshot = await getDocs(tradesRef);
+
+            if (!snapshot.empty) {
+                console.debug(`Found ${snapshot.size} stragglers in Firestore. Cleaning up...`);
+                const { writeBatch } = await import('firebase/firestore');
+                const batchSize = 400;
+                let batches = [];
+                let currentbatch = writeBatch(remoteDb);
+                let count = 0;
+
+                snapshot.docs.forEach((doc) => {
+                    currentbatch.delete(doc.ref);
+                    count++;
+                    if (count >= batchSize) {
+                        batches.push(currentbatch.commit());
+                        currentbatch = writeBatch(remoteDb);
+                        count = 0;
+                    }
+                });
+
+                if (count > 0) {
+                    batches.push(currentbatch.commit());
+                }
+
+                await Promise.all(batches);
+                console.debug('Firestore cleanup complete.');
+            } else {
+                console.debug('No remote stragglers found.');
+            }
+
+        } catch (error) {
+            console.error('Error in delete all:', error);
             throw error;
         } finally {
             this.isSyncing = false;

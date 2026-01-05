@@ -1,5 +1,3 @@
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -25,19 +23,18 @@ ChartJS.register(
     ArcElement
 );
 
-import { useAccount } from '../context/AccountContext';
-import { useAuth } from '../context/AuthContext';
+
+import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
 
 export function StrategyAnalytics() {
-    const { selectedAccount } = useAccount();
-    const { user } = useAuth();
-    const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user) return [];
-        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
-    }, [selectedAccount, user]);
+    // const { selectedAccount } = useAccount(); // Unused in hook
+    // const { user } = useAuth(); // Unused in hook
+
+    // Switch to Cloud Data
+    const { trades, loading } = useFirestoreTrades();
     const theme = useTheme();
 
-    if (!trades) return <Typography>Loading...</Typography>;
+    if (loading) return <Typography>Loading...</Typography>;
 
     const closedTrades = trades.filter(t => t.status === 'Closed');
 

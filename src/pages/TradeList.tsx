@@ -1,4 +1,3 @@
-import { useLiveQuery } from 'dexie-react-hooks';
 import { useState, useRef } from 'react';
 import { db } from '../db/db';
 import { Link } from 'react-router-dom';
@@ -35,6 +34,7 @@ import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { TradeDetailsDialog } from '../components/TradeDetailsDialog';
 import type { Trade } from '../types/trade';
 import { useMarketData } from '../context/MarketDataContext';
+import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
 
 export function TradeList() {
     const { selectedAccount } = useAccount();
@@ -45,7 +45,6 @@ export function TradeList() {
         pageSize: 10,
         page: 0,
     });
-    const [rowCount, setRowCount] = useState(0);
     const [csvImportOpen, setCsvImportOpen] = useState(false);
     const [selectedBroker, setSelectedBroker] = useState<BrokerName | 'auto'>('auto');
     const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -55,33 +54,31 @@ export function TradeList() {
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Lazy query: fetches only the needed slice
-    const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user) {
-            setRowCount(0);
-            return [];
-        }
+    // Firestore Hook
+    const { trades: firestoreTrades, loading: firestoreLoading } = useFirestoreTrades();
+    const trades = firestoreTrades; // alias for compatibility
+    const isLoading = firestoreLoading;
+    const totalCount = trades.length; // Client-side pagination for now
 
-        const allTrades = await db.trades
-            .where('[userId+accountId]')
-            .equals([user.uid, selectedAccount])
-            .reverse()
-            .sortBy('date');
+    // Client-side pagination logic since we fetch all for this account
+    // (Firestore pagination is complex, fetching all < 2000 trades is fine for MVP)
+    const paginatedTrades = trades.slice(
+        paginationModel.page * paginationModel.pageSize,
+        (paginationModel.page + 1) * paginationModel.pageSize
+    );
 
-        setRowCount(allTrades.length);
+    const handleDelete = async (id: number | string) => {
+        if (!window.confirm('Are you sure you want to delete this trade?')) return;
+        if (!user) return;
 
-        // Manually paginate after sorting
-        const start = paginationModel.page * paginationModel.pageSize;
-        const end = start + paginationModel.pageSize;
-        return allTrades.slice(start, end);
-    }, [paginationModel, selectedAccount, user]); // Re-run when page or selectedAccount changes
-
-    const totalCount = rowCount;
-    const isLoading = trades === undefined;
-
-    const handleDelete = async (id: number) => {
-        if (confirm('Are you sure you want to delete this trade?')) {
-            await db.trades.delete(id);
+        try {
+            const { deleteDoc, doc } = await import('firebase/firestore');
+            const { db: remoteDb } = await import('../utils/firebase');
+            await deleteDoc(doc(remoteDb, 'users', user.uid, 'trades', id.toString()));
+            // No need to manual refresh, onSnapshot handles it!
+        } catch (err) {
+            console.error("Delete failed", err);
+            alert("Failed to delete trade");
         }
     };
 
@@ -91,13 +88,22 @@ export function TradeList() {
             field: 'date',
             headerName: 'Entry Date',
             width: 120,
-            valueFormatter: (value: unknown) => value ? new Date(value as string).toLocaleDateString() : ''
+            valueFormatter: (value: unknown) => {
+                if (!value) return '';
+                // Display UTC date to match storage
+                const date = new Date(value as string);
+                return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
+            }
         },
         {
             field: 'exitDate',
             headerName: 'Exit Date',
             width: 120,
-            valueFormatter: (value: unknown) => value ? new Date(value as string).toLocaleDateString() : '-'
+            valueFormatter: (value: unknown) => {
+                if (!value) return '-';
+                const date = new Date(value as string);
+                return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
+            }
         },
         // ... (daysOpen)
         {
@@ -389,7 +395,7 @@ export function TradeList() {
 
             <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden', boxShadow: 3, borderRadius: 3 }}>
                 <DataGrid
-                    rows={trades}
+                    rows={paginatedTrades}
                     columns={columns}
                     rowCount={totalCount}
                     loading={isLoading}

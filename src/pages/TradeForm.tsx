@@ -3,15 +3,24 @@ import { useForm, Controller, type Resolver, type SubmitHandler } from 'react-ho
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import type { Trade } from '../types/trade';
+// import type { Trade } from '../types/trade'; // Unused
 import { useNavigate, useParams } from 'react-router-dom';
-import { db } from '../db/db';
+// import { db } from '../db/db'; // Unused
 import { calculatePnL, calculatePnLPercent, calculateRiskReward } from '../utils/calculations';
 import { useEffect } from 'react';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
 import { MarketDataService } from '../services/MarketDataService';
 import { ChevronLeft, Save } from 'lucide-react';
+import {
+    addDoc,
+    setDoc,
+    doc,
+    collection,
+    serverTimestamp,
+    getDoc
+} from 'firebase/firestore';
+import { db as remoteDb } from '../utils/firebase';
 import {
     Box,
     TextField,
@@ -76,6 +85,7 @@ export function TradeForm() {
     const { id } = useParams();
     const navigate = useNavigate();
     const { selectedAccount } = useAccount();
+    const { user } = useAuth();
     const isEditMode = !!id;
 
     // Fix for setValue type inference
@@ -164,29 +174,29 @@ export function TradeForm() {
     const isCreditStrategy = side === 'Sell' && type === 'Option';
 
     useEffect(() => {
-        if (isEditMode && id) {
-            db.trades.get(Number(id)).then((trade) => {
-                if (trade) {
+        if (isEditMode && id && user) {
+            const fetchTrade = async () => {
+                // Static imports used
+                // const { doc, getDoc } = await import('firebase/firestore');
+                // const { db: remoteDb } = await import('../utils/firebase');
+
+                const docSnap = await getDoc(doc(remoteDb, 'users', user.uid, 'trades', id));
+                if (docSnap.exists()) {
+                    const trade = docSnap.data();
                     reset({
-                        ...trade,
-                        date: trade.date.toISOString().split('T')[0],
-                        exitDate: trade.exitDate ? trade.exitDate.toISOString().split('T')[0] : undefined,
-                        expiration: trade.expiration ? trade.expiration.toISOString().split('T')[0] : undefined,
-                        strike: trade.strike || undefined,
-                        optionType: trade.optionType || undefined,
-                        exitPrice: trade.exitPrice || undefined,
-                        stopLoss: trade.stopLoss || undefined,
-                        target: trade.target || undefined,
-                        mistakes: trade.mistakes || [],
-                        emotions: trade.emotions || [],
-                        screenshots: trade.screenshots || [],
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        ...(trade as any),
+                        date: trade.date?.toDate?.().toISOString().split('T')[0] || new Date(trade.date).toISOString().split('T')[0],
+                        exitDate: trade.exitDate ? (trade.exitDate.toDate?.().toISOString().split('T')[0] || new Date(trade.exitDate).toISOString().split('T')[0]) : undefined,
+                        expiration: trade.expiration ? (trade.expiration.toDate?.().toISOString().split('T')[0] || new Date(trade.expiration).toISOString().split('T')[0]) : undefined,
                     });
                 }
-            });
+            };
+            fetchTrade();
         }
-    }, [id, isEditMode, reset]);
+    }, [id, isEditMode, reset, user]);
 
-    const { user } = useAuth();
+    // user moved to top
     // Image Handling
     const handlePaste = (e: React.ClipboardEvent) => {
         const items = e.clipboardData.items;
@@ -212,11 +222,20 @@ export function TradeForm() {
     };
 
     const onSubmit: SubmitHandler<TradeFormValues> = async (data) => {
+        console.log("Submitting trade form...", data);
         if (!user) {
+            console.error("User not found!");
             alert('You must be logged in to save a trade.');
             return;
         }
+        if (!selectedAccount) {
+            console.error("No account selected!");
+            alert("No account selected. Please select an account from the sidebar.");
+            return;
+        }
+
         try {
+            console.log("Calculations starting...");
             const hasExitPrice = data.exitPrice !== null && data.exitPrice !== undefined;
             const pnl = (hasExitPrice && data.status === 'Closed' && data.exitPrice !== undefined)
                 ? calculatePnL(data.entryPrice, data.exitPrice, data.quantity, data.side)
@@ -232,8 +251,6 @@ export function TradeForm() {
 
             let formattedSymbol = data.symbol;
             if (data.type === 'Option' && data.strike && data.optionType) {
-                // Determine underlying symbol (remove any existing option clutter if user typed it manually)
-                // But generally user types just TICKER.
                 const underlying = data.symbol.split(' ')[0];
                 const typeLabel = data.optionType.toUpperCase();
                 formattedSymbol = `${underlying} $${data.strike} ${typeLabel}`;
@@ -243,7 +260,7 @@ export function TradeForm() {
                 ...data,
                 userId: user.uid,
                 symbol: formattedSymbol,
-                accountId: selectedAccount, // Assign current account
+                accountId: selectedAccount,
                 date: new Date(data.date),
                 exitDate: data.exitDate ? new Date(data.exitDate) : undefined,
                 expiration: data.expiration ? new Date(data.expiration) : undefined,
@@ -264,21 +281,53 @@ export function TradeForm() {
                 updatedAt: new Date(),
             };
 
-            if (isEditMode && id) {
-                // When editing, we preserve the original accountId if it exists, or update it if undefined.
-                // But simplified: just update.
-                await db.trades.update(Number(id), tradeData);
-            } else {
-                await db.trades.add({
-                    ...tradeData,
-                    createdAt: new Date(),
-                } as Trade);
-            }
+            console.log("Importing Firestore...");
+            // Static imports are now at the top
+            // const { addDoc, setDoc, doc, collection, serverTimestamp } = await import('firebase/firestore');
+            // const { db: remoteDb } = await import('../utils/firebase');
+
+            const cleanData = (obj: any) => {
+                const newObj: any = {};
+                Object.keys(obj).forEach(key => {
+                    const val = obj[key];
+                    if (val !== undefined) newObj[key] = val;
+                });
+                return newObj;
+            };
+
+            const firestoreData = cleanData({
+                ...tradeData,
+                updatedAt: serverTimestamp(),
+                createdAt: isEditMode ? undefined : serverTimestamp()
+            });
+
+            console.log("Saving to Firestore...", firestoreData);
+
+            // Timeout Promise to prevent hanging
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Request timed out - check your connection")), 10000)
+            );
+
+            const savePromise = (async () => {
+                if (isEditMode && id) {
+                    await setDoc(doc(remoteDb, 'users', user.uid, 'trades', id), firestoreData, { merge: true });
+                } else {
+                    await addDoc(collection(remoteDb, 'users', user.uid, 'trades'), firestoreData);
+                }
+            })();
+
+            await Promise.race([savePromise, timeoutPromise]);
+            console.log("Save successful!");
             navigate('/trades');
         } catch (error) {
             console.error('Failed to save trade:', error);
-            alert('Failed to save trade');
+            alert(`Failed to save trade: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
+    };
+
+    const onError = (errors: any) => {
+        console.error("Validation Errors:", errors);
+        alert("Please fix the errors in the form before saving.");
     };
 
     const previewRR = (entryPrice && stopLoss && target)
@@ -300,7 +349,7 @@ export function TradeForm() {
                 </Button>
             </Box>
 
-            <Paper component="form" onSubmit={handleSubmit(onSubmit)} sx={{ p: 4 }}>
+            <Paper component="form" onSubmit={handleSubmit(onSubmit, onError)} sx={{ p: 4 }}>
                 <Grid container spacing={3}>
                     {/* Basic Info */}
                     <Grid size={{ xs: 12, md: 6 }}>

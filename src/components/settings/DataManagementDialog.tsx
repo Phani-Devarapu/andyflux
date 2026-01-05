@@ -40,7 +40,8 @@ export function DataManagementDialog({ open, onClose }: DataManagementDialogProp
         setMessage(null);
         try {
             await syncService.deleteTradesByMonth(user.uid, year, month);
-            setMessage({ type: 'success', text: `Trades for ${month}/${year} deleted successfully.` });
+            setMessage({ type: 'success', text: `Trades for ${month}/${year} deleted successfully. Reloading...` });
+            setTimeout(() => window.location.reload(), 1000);
         } catch (error) {
             console.error(error);
             setMessage({ type: 'error', text: 'Failed to delete trades. Please try again.' });
@@ -112,7 +113,7 @@ export function DataManagementDialog({ open, onClose }: DataManagementDialogProp
                     </Grid>
                 </Grid>
 
-                <Box sx={{ mt: 4, display: 'flex', justifyContent: 'center' }}>
+                <Box sx={{ mt: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
                     <Button
                         variant="outlined"
                         color="error"
@@ -122,6 +123,46 @@ export function DataManagementDialog({ open, onClose }: DataManagementDialogProp
                         fullWidth
                     >
                         {loading ? 'Deleting...' : `Delete Trades for ${month}/${year}`}
+                    </Button>
+
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={async () => {
+                            if (!user) return;
+                            const confirmText = window.prompt("⚠️ DANGER ZONE ⚠️\n\nThis will permanently delete ALL trade data from your account.\nThis action cannot be undone.\n\nType 'DELETE' to confirm:");
+                            if (confirmText === 'DELETE') {
+                                setLoading(true);
+                                setMessage(null);
+                                try {
+                                    // wrapper to allow timeout
+                                    const deletePromise = syncService.deleteAllTrades(user.uid);
+                                    const timeoutPromise = new Promise((_, reject) =>
+                                        setTimeout(() => reject(new Error('Operation timed out')), 60000)
+                                    );
+
+                                    await Promise.race([deletePromise, timeoutPromise]);
+                                    setMessage({ type: 'success', text: 'All trade data has been permanently deleted. Reloading...' });
+                                    // Force reload to clear any in-memory state or cache
+                                    setTimeout(() => window.location.reload(), 1000);
+                                } catch (error) {
+                                    console.error(error);
+                                    setMessage({
+                                        type: 'error',
+                                        text: error instanceof Error && error.message === 'Operation timed out'
+                                            ? 'The operation took too long. Please refresh and check if data was deleted.'
+                                            : 'Failed to delete data. Please try again.'
+                                    });
+                                } finally {
+                                    setLoading(false);
+                                }
+                            }
+                        }}
+                        disabled={loading}
+                        fullWidth
+                        sx={{ bgcolor: 'error.dark', color: 'white' }}
+                    >
+                        Delete ALL Trade Data
                     </Button>
                 </Box>
             </DialogContent>

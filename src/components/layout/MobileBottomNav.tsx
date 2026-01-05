@@ -1,6 +1,7 @@
 import { BottomNavigation, BottomNavigationAction, Paper } from '@mui/material';
 import { LayoutDashboard, Calendar, List, PlusCircle, Menu, Wallet } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAccount } from '../../context/AccountContext';
 
 interface MobileBottomNavProps {
     onMenuClick: () => void;
@@ -9,6 +10,7 @@ interface MobileBottomNavProps {
 export function MobileBottomNav({ onMenuClick }: MobileBottomNavProps) {
     const navigate = useNavigate();
     const location = useLocation();
+    const { selectedAccount } = useAccount();
 
     // Determine current value based on path
     const getCurrentValue = () => {
@@ -101,11 +103,13 @@ export function MobileBottomNav({ onMenuClick }: MobileBottomNavProps) {
                     value="/trades"
                     icon={<List size={20} />}
                 />
-                <BottomNavigationAction
-                    label="Expenses"
-                    value="/expenses"
-                    icon={<Wallet size={20} />}
-                />
+                {selectedAccount === 'PERSONAL' && (
+                    <BottomNavigationAction
+                        label="Expenses"
+                        value="/expenses"
+                        icon={<Wallet size={20} />}
+                    />
+                )}
                 <BottomNavigationAction
                     label="Menu"
                     value="menu"

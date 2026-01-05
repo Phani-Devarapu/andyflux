@@ -1,6 +1,4 @@
 import { useState, useMemo } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
 import { formatCurrency, calculateProfitFactor, calculateExpectancy, calculateWinRate } from '../utils/calculations';
 import { isAfter, subWeeks, subMonths, startOfYear } from 'date-fns';
 import {
@@ -24,22 +22,21 @@ import {
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 
-import { useAccount } from '../context/AccountContext';
-import { useAuth } from '../context/AuthContext';
 import { useMarketData } from '../context/MarketDataContext';
 
 type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 
+import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
+
 export const TickerAnalytics = () => {
-    const { selectedAccount } = useAccount();
+    // const { selectedAccount } = useAccount(); // Unused
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [timeRange, setTimeRange] = useState<TimeRange>('ALL');
-    const { user } = useAuth();
+    // const { user } = useAuth(); // Unused
     const { prices } = useMarketData();
-    const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user) return [];
-        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
-    }, [selectedAccount, user]);
+
+    // Switch to Cloud Data
+    const { trades } = useFirestoreTrades();
 
     const allTickers = useMemo(() => {
         if (!trades) return [];
