@@ -17,11 +17,12 @@ import {
     Typography,
     Box
 } from '@mui/material';
-import { DollarSign, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../../types/expenseTypes';
 import { getCategoryIcon } from '../../utils/categoryIcons';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useFxRates } from '../../context/FxRateContext';
 import { format } from 'date-fns';
 import { db } from '../../utils/firebase';
 import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
@@ -36,6 +37,7 @@ interface AddExpenseDialogProps {
 interface ExpenseFormValues {
     date: string; // YYYY-MM-DD for date input
     amount: string;
+    currency: 'CAD' | 'USD' | 'INR';
     category: string;
     description: string;
     isRecurring: boolean;
@@ -45,11 +47,13 @@ interface ExpenseFormValues {
 export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpenseDialogProps) {
     const { user } = useAuth();
     const { selectedAccount } = useAccount();
+    const { convert } = useFxRates();
 
     const { control, handleSubmit, reset, watch } = useForm<ExpenseFormValues>({
         defaultValues: {
             date: format(new Date(), 'yyyy-MM-dd'),
             amount: '',
+            currency: 'CAD',
             category: 'software',
             description: '',
             isRecurring: false,
@@ -58,13 +62,16 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
     });
 
     const isRecurring = watch('isRecurring');
+    const watchedAmount = watch('amount');
+    const watchedCurrency = watch('currency');
 
     useEffect(() => {
         if (open) {
             if (editExpense) {
                 reset({
                     date: format(editExpense.date, 'yyyy-MM-dd'),
-                    amount: editExpense.amount.toString(),
+                    amount: (editExpense.originalAmount || editExpense.amount).toString(),
+                    currency: editExpense.currency || 'CAD',
                     category: editExpense.category,
                     description: editExpense.description || '',
                     isRecurring: editExpense.isRecurring,
@@ -74,6 +81,7 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
                 reset({
                     date: format(new Date(), 'yyyy-MM-dd'),
                     amount: '',
+                    currency: 'CAD',
                     category: 'software',
                     description: '',
                     isRecurring: false,
@@ -90,11 +98,17 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
             // Parse date string back to Date object (noon to avoid timezone shift issues on simple dates)
             const dateObj = new Date(data.date + 'T12:00:00');
 
+            const originalAmount = parseFloat(data.amount);
+            const convertedAmount = convert(originalAmount, data.currency, 'CAD');
+
             const expenseData: Record<string, any> = {
                 userId: user.uid,
                 accountId: selectedAccount,
                 date: dateObj,
-                amount: parseFloat(data.amount),
+                amount: convertedAmount, // Always store converted CAD amount
+                currency: data.currency,
+                originalAmount: originalAmount,
+                exchangeRate: convertedAmount / originalAmount, // Store implied rate
                 category: data.category,
                 description: data.description,
                 isRecurring: data.isRecurring,
@@ -137,8 +151,27 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
             <form onSubmit={handleSubmit(onSubmit)}>
                 <DialogContent>
                     <Grid container spacing={2}>
-                        {/* Amount */}
-                        <Grid size={{ xs: 12 }}>
+                        {/* Currency & Amount */}
+                        <Grid size={{ xs: 4 }}>
+                            <Controller
+                                name="currency"
+                                control={control}
+                                rules={{ required: true }}
+                                render={({ field }) => (
+                                    <TextField
+                                        {...field}
+                                        select
+                                        label="Currency"
+                                        fullWidth
+                                    >
+                                        <MenuItem value="CAD">CAD</MenuItem>
+                                        <MenuItem value="USD">USD</MenuItem>
+                                        <MenuItem value="INR">INR</MenuItem>
+                                    </TextField>
+                                )}
+                            />
+                        </Grid>
+                        <Grid size={{ xs: 8 }}>
                             <Controller
                                 name="amount"
                                 control={control}
@@ -150,11 +183,16 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
                                         type="number"
                                         fullWidth
                                         error={!!error}
-                                        helperText={error?.message}
+                                        helperText={
+                                            error?.message ||
+                                            (watchedCurrency !== 'CAD' && watchedAmount ?
+                                                `≈ $${convert(parseFloat(watchedAmount), watchedCurrency, 'CAD').toFixed(2)} CAD`
+                                                : '')
+                                        }
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <DollarSign size={18} />
+                                                    {watchedCurrency === 'INR' ? '₹' : '$'}
                                                 </InputAdornment>
                                             ),
                                         }}

@@ -92,9 +92,17 @@ export function ExpenseCard({ expense, category, onEdit, onDelete }: ExpenseCard
                     pt: { xs: 1, sm: 0 },
                     borderTop: { xs: `1px solid ${theme.palette.divider}`, sm: 'none' }
                 }}>
-                    <Typography variant="h6" fontWeight={700} color="error.main">
-                        -${expense.amount.toFixed(2)}
-                    </Typography>
+                    <Box sx={{ textAlign: 'right' }}>
+                        <Typography variant="h6" fontWeight={700} color="error.main">
+                            -${expense.amount.toFixed(2)}
+                        </Typography>
+                        {expense.currency && expense.currency !== 'CAD' && expense.originalAmount && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                                ≈ {expense.currency === 'INR' ? '₹' : '$'}
+                                {expense.originalAmount.toFixed(2)} {expense.currency}
+                            </Typography>
+                        )}
+                    </Box>
 
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <IconButton size="small" onClick={() => onEdit(expense)}>

@@ -13,6 +13,7 @@ import { StrategyAnalytics } from './pages/StrategyAnalytics';
 import { ActivityReport } from './pages/ActivityReport';
 import { ColorModeProvider, useColorMode } from './context/ColorModeContext';
 import { AccountProvider } from './context/AccountContext';
+import { FxRateProvider } from './context/FxRateContext';
 import { getTheme } from './theme';
 
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
@@ -60,7 +61,9 @@ function App() {
     <AccountProvider>
       <ColorModeProvider>
         <TradesProvider>
-          <AppContent />
+          <FxRateProvider>
+            <AppContent />
+          </FxRateProvider>
         </TradesProvider>
       </ColorModeProvider>
     </AccountProvider>

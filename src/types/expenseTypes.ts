@@ -6,7 +6,10 @@ export interface Expense {
     accountId: string; // TFSA, FHSA, etc.
     date: Date;
     category: string;
-    amount: number;
+    amount: number; // Always stored in CAD
+    currency?: 'CAD' | 'USD' | 'INR'; // Original currency
+    originalAmount?: number; // Amount in original currency
+    exchangeRate?: number; // Rate used for conversion (1 CAD = x Original)
     description?: string;
 
     // Feature: Recurring / Subscriptions

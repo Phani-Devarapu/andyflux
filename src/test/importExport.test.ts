@@ -1,7 +1,6 @@
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { importFromJson, importFromCsv, exportToCsv, exportToJson } from '../utils/importExport';
-import Papa from 'papaparse';
 
 // Mock Firebase modules
 const mockBatchSet = vi.fn();
@@ -16,9 +15,9 @@ const mockDb = {};
 
 vi.mock('firebase/firestore', () => ({
     getFirestore: vi.fn(),
-    writeBatch: (...args: any[]) => mockWriteBatch(...args),
-    doc: (...args: any[]) => mockDoc(...args),
-    collection: (...args: any[]) => mockCollection(...args),
+    writeBatch: mockWriteBatch,
+    doc: mockDoc,
+    collection: mockCollection,
 }));
 
 vi.mock('../utils/firebase', () => ({
@@ -99,7 +98,7 @@ describe('importExportUtils', () => {
     describe('importFromCsv', () => {
         it('should correctly parse Generic CSV and match simple entry/exit', async () => {
             // Mock Papa.parse implementation for this test
-            mockParse.mockImplementation((file, config) => {
+            mockParse.mockImplementation((_file, config) => {
                 const rows = [
                     // Using header-transformed keys (lowercase) as they appear in the data array passed to 'complete'
                     // The adapter logic does another pass of lowercasing, but let's provide clean data
@@ -128,7 +127,7 @@ describe('importExportUtils', () => {
         });
 
         it('should correctly parse Wealthsimple CSV', async () => {
-            mockParse.mockImplementation((file, config) => {
+            mockParse.mockImplementation((_file, config) => {
                 const rows = [
                     {
                         'transaction_date': '2023-01-01',
@@ -170,7 +169,7 @@ describe('importExportUtils', () => {
         });
 
         it('should handle unmatched trades (Open positions)', async () => {
-            mockParse.mockImplementation((file, config) => {
+            mockParse.mockImplementation((_file, config) => {
                 const rows = [
                     { 'date': '2023-02-01', 'symbol': 'GOOG', 'side': 'Buy', 'price': '100', 'shares': '20' }
                 ];
@@ -187,7 +186,7 @@ describe('importExportUtils', () => {
             expect(storedTrade.quantity).toBe(20);
         });
         it('should handle CSV with error callback', async () => {
-            mockParse.mockImplementation((file, config) => {
+            mockParse.mockImplementation((_file, config) => {
                 if (config && config.error) config.error(new Error('CSV Parse Error'));
                 return {} as any;
             });
