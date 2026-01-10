@@ -196,6 +196,51 @@ export function TradeList() {
             }
         },
         {
+            field: 'annualizedReturn',
+            headerName: 'Annualized Return',
+            width: 150,
+            type: 'number',
+            valueGetter: (_: unknown, row: Trade) => {
+                // Only calculate for closed trades with P/L
+                if (row.status !== 'Closed' || !row.pnl || !row.exitDate || !row.date) return null;
+
+                // Calculate days held
+                const exit = new Date(row.exitDate);
+                const entry = new Date(row.date);
+                const diffTime = Math.abs(exit.getTime() - entry.getTime());
+                const daysHeld = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+                // Avoid division by zero
+                if (daysHeld === 0) return null;
+
+                // Calculate capital invested (entry price × quantity + fees)
+                const capitalInvested = (row.entryPrice * row.quantity) + (row.fees || 0);
+
+                // Avoid division by zero
+                if (capitalInvested === 0) return null;
+
+                // Annualized Return = (P/L / Capital) × (365 / Days) × 100
+                const returnPercent = (row.pnl / capitalInvested) * 100;
+                const annualized = returnPercent * (365 / daysHeld);
+
+                return annualized;
+            },
+            renderCell: (params: GridRenderCellParams) => {
+                const value = params.value as number | null;
+                if (value === null || value === undefined) return '-';
+
+                return (
+                    <Typography
+                        variant="body2"
+                        fontWeight="bold"
+                        color={value >= 0 ? 'success.main' : 'error.main'}
+                    >
+                        {value > 0 ? '+' : ''}{value.toFixed(1)}%
+                    </Typography>
+                );
+            }
+        },
+        {
             field: 'status',
             headerName: 'Status',
             width: 100,
