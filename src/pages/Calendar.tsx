@@ -77,9 +77,19 @@ export function Calendar() {
     const emptySlots = Array(startDayOfWeek).fill(null);
 
     const getDayStats = (date: Date) => {
-        if (!trades) return { pnl: 0, count: 0, wins: 0, losses: 0, invested: 0, trades: [] };
+        if (!trades) return { pnl: 0, count: 0, wins: 0, losses: 0, invested: 0, trades: [], hasPnL: false };
         const daysTrades = trades.filter(t => isSameDay(new Date(t.date), date));
-        const pnl = daysTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
+
+        // Calculate P/L: Only sum trades that have P/L defined (including 0)
+        let pnl = 0;
+        let hasPnL = false;
+        daysTrades.forEach(t => {
+            if (t.pnl !== undefined && t.pnl !== null) {
+                pnl += t.pnl;
+                hasPnL = true;
+            }
+        });
+
         const count = daysTrades.length;
         const wins = daysTrades.filter(t => (t.pnl || 0) > 0).length;
         const losses = daysTrades.filter(t => (t.pnl || 0) < 0).length;
@@ -89,7 +99,7 @@ export function Calendar() {
         // Ideally, if PnL is 0 (all open trades), we show the total cost of those trades.
         const invested = daysTrades.reduce((acc, t) => acc + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
 
-        return { pnl, count, wins, losses, invested, trades: daysTrades };
+        return { pnl, count, wins, losses, invested, trades: daysTrades, hasPnL };
     };
 
     // Expense Stats Helper
@@ -105,7 +115,7 @@ export function Calendar() {
 
     type DayStats =
         | { type: 'expense'; totalSpent: number; count: number; items: Expense[] }
-        | { type: 'trade'; pnl: number; count: number; wins: number; losses: number; invested: number; trades: Trade[] };
+        | { type: 'trade'; pnl: number; count: number; wins: number; losses: number; invested: number; trades: Trade[]; hasPnL: boolean };
 
     const selectedDayData: DayStats | null = selectedDate
         ? (selectedAccount === 'PERSONAL'
@@ -315,11 +325,11 @@ export function Calendar() {
                                             <Typography
                                                 variant="body1"
                                                 fontWeight="bold"
-                                                color={stats.pnl !== 0 ? (stats.pnl > 0 ? 'success.main' : 'error.main') : 'text.primary'}
+                                                color={stats.hasPnL ? (stats.pnl > 0 ? 'success.main' : stats.pnl < 0 ? 'error.main' : 'text.primary') : 'text.primary'}
                                                 align="center"
                                                 sx={{ my: 1 }}
                                             >
-                                                {formatCurrency(stats.pnl !== 0 ? stats.pnl : stats.invested)}
+                                                {formatCurrency(stats.hasPnL ? stats.pnl : stats.invested)}
                                             </Typography>
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <Typography variant="caption" color="text.secondary" fontWeight="medium">
