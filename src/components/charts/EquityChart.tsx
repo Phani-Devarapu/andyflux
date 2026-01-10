@@ -51,7 +51,13 @@ export function EquityChart({ trades, unrealizedPnL }: EquityChartProps) {
         const dailyPnL: Record<string, number> = {};
 
         closedTrades.forEach(t => {
-            const dateStr = format(new Date(t.exitDate!), 'yyyy-MM-dd');
+            // Validate exitDate before formatting
+            const exitDate = new Date(t.exitDate!);
+            if (isNaN(exitDate.getTime())) {
+                console.warn('Invalid exitDate found in trade:', t);
+                return; // Skip this trade
+            }
+            const dateStr = format(exitDate, 'yyyy-MM-dd');
             if (!dailyPnL[dateStr]) dailyPnL[dateStr] = 0;
             dailyPnL[dateStr] += (t.pnl || 0);
         });

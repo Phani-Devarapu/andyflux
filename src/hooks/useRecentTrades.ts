@@ -34,6 +34,8 @@ export function useRecentTrades(limitCount = 100) {
                         ...data,
                         id: doc.id,
                         date: data.date?.toDate?.() || new Date(data.date),
+                        exitDate: data.exitDate?.toDate?.() || (data.exitDate ? new Date(data.exitDate) : undefined),
+                        expiration: data.expiration?.toDate?.() || (data.expiration ? new Date(data.expiration) : undefined),
                         // ... mappings if needed for PnL chart ...
                         pnl: data.pnl,
                         entryPrice: data.entryPrice,
