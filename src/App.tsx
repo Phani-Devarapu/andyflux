@@ -8,9 +8,7 @@ import { TradeList } from './pages/TradeList';
 import { TradeForm } from './pages/TradeForm';
 import { Analytics } from './pages/Analytics';
 import { Calendar } from './pages/Calendar';
-import { TickerAnalytics } from './pages/TickerAnalytics';
-import { StrategyAnalytics } from './pages/StrategyAnalytics';
-import { ActivityReport } from './pages/ActivityReport';
+import { Reports } from './pages/Reports';
 import { ColorModeProvider, useColorMode } from './context/ColorModeContext';
 import { AccountProvider } from './context/AccountContext';
 import { FxRateProvider } from './context/FxRateContext';
@@ -40,11 +38,8 @@ function AppContent() {
           <Route path="/add" element={<TradeForm />} />
           <Route path="/edit/:id" element={<TradeForm />} />
           <Route path="/analytics" element={<Analytics />} />
-          <Route path="/ticker-analytics" element={<TickerAnalytics />} />
-          <Route path="/strategy-analytics" element={<StrategyAnalytics />} />
           <Route path="/calendar" element={<Calendar />} />
-
-          <Route path="/activity-reports" element={<ActivityReport />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/expenses" element={<ExpenseManagerPage />} />
         </Route>
 

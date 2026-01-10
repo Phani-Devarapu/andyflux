@@ -1,17 +1,15 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-    BarChart3,
     Calendar,
     LayoutDashboard,
     List as ListIcon,
-    PieChart,
     LogOut,
     Cloud,
     LogIn,
     PlusCircle,
     Sun,
     Moon,
-    Activity,
+    FileText,
     Wallet
 } from 'lucide-react';
 import {
@@ -43,9 +41,7 @@ const MENU_ITEMS = [
     { text: 'Calendar', icon: Calendar, path: '/calendar' },
     { text: 'Trade Log', icon: ListIcon, path: '/trades' },
     { text: 'Add Trade', icon: PlusCircle, path: '/add' },
-    { text: 'Activity Reports', icon: Activity, path: '/activity-reports' },
-    { text: 'Ticker Analytics', icon: BarChart3, path: '/ticker-analytics' },
-    { text: 'Strategy Analytics', icon: PieChart, path: '/strategy-analytics' },
+    { text: 'Reports', icon: FileText, path: '/reports' },
     { text: 'Expenses', icon: Wallet, path: '/expenses' },
     // { text: 'Settings', icon: Settings, path: '/settings' },
 ];
@@ -72,9 +68,9 @@ export function Sidebar({ onClose }: SidebarProps) {
     // Filter menu items based on selected account
     const filteredItems = MENU_ITEMS.filter(item => {
         if (selectedAccount === 'PERSONAL') {
-            // For Personal account: Include Expenses, Dashboard, Calendar, Activity.
-            // Exclude: Trade Log, Add Trade, Ticker Analytics, Strategy Analytics
-            const excludedPaths = ['/trades', '/add', '/ticker-analytics', '/strategy-analytics'];
+            // For Personal account: Include Expenses, Dashboard, Calendar.
+            // Exclude: Trade Log, Add Trade, Reports
+            const excludedPaths = ['/trades', '/add', '/reports'];
             return !excludedPaths.includes(item.path);
         } else {
             // In TFSA/FHSA/Non-Reg: Exclude Expenses
@@ -163,7 +159,9 @@ export function Sidebar({ onClose }: SidebarProps) {
                     <List sx={{ px: 2 }}>
                         {filteredItems.map((item) => {
                             const Icon = item.icon;
-                            const active = location.pathname === item.path;
+                            const active = location.pathname.startsWith(item.path) && item.path !== '/'
+                                ? true
+                                : location.pathname === item.path;
                             return (
                                 <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
                                     <ListItemButton
