@@ -1,7 +1,7 @@
 export type GoalType = 'PnL' | 'Volume' | 'WinRate';
 
 export interface Goal {
-    id?: number;
+    id?: string;
     userId: string;
     accountId: string;
     year: number;

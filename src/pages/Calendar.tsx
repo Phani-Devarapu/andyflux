@@ -1,10 +1,14 @@
-import { useState, forwardRef } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db/db';
-import { expenseDb } from '../db/expenseDb';
+import { useState, forwardRef, useMemo } from 'react';
+// import { useLiveQuery } from 'dexie-react-hooks'; // Removed
+// import { db } from '../db/db'; // Removed
+// import { expenseDb } from '../db/expenseDb'; // Removed
+import { useAllTrades } from '../hooks/useAllTrades';
+import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
+import type { Trade } from '../types/trade';
+import type { Expense } from '../types/expenseTypes';
 import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
-import { useAuth } from '../context/AuthContext';
+// import { useAuth } from '../context/AuthContext'; // Removed
 import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { ContributionGraph } from '../components/analytics/ContributionGraph';
 import { startOfMonth, endOfMonth, eachDayOfInterval, format, isSameDay, addMonths, subMonths, isToday } from 'date-fns';
@@ -22,7 +26,8 @@ import {
     DialogTitle,
     DialogContent,
     Slide,
-    CardActionArea
+    CardActionArea,
+    Button
 } from '@mui/material';
 import type { TransitionProps } from '@mui/material/transitions';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types/expenseTypes';
@@ -48,20 +53,21 @@ export function Calendar() {
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState<Date | null>(null);
     const { selectedAccount } = useAccount();
-    const { user } = useAuth();
+    // const { user } = useAuth(); // Removed
     const theme = useTheme();
 
-    // Fetch Trades
-    const trades = useLiveQuery(async () => {
-        if (!selectedAccount || !user || selectedAccount === 'PERSONAL') return [];
-        return await db.trades.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
-    }, [selectedAccount, user]);
+    // Fetch Trades (Cloud)
+    const { trades, error: tradesError, loading: tradesLoading } = useAllTrades();
 
-    // Fetch Expenses (Personal Account)
-    const expenses = useLiveQuery(async () => {
-        if (!selectedAccount || !user || selectedAccount !== 'PERSONAL') return [];
-        return await expenseDb.expenses.where('[userId+accountId]').equals([user.uid, selectedAccount]).toArray();
-    }, [selectedAccount, user]);
+    // Fetch Expenses (Cloud - Personal Account)
+    const { expenses: allExpenses } = useFirestoreExpenses();
+
+    // Filter expenses for current account (if 'PERSONAL')
+    // Note: useFirestoreExpenses fetches all user expenses. We filter client-side for now.
+    const expenses = useMemo(() => {
+        if (!selectedAccount || selectedAccount !== 'PERSONAL' || !allExpenses) return [];
+        return allExpenses.filter(e => e.accountId === selectedAccount);
+    }, [allExpenses, selectedAccount]);
 
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -88,23 +94,24 @@ export function Calendar() {
 
     // Expense Stats Helper
     const getExpenseDayStats = (date: Date) => {
-        if (!expenses) return { totalSpent: 0, count: 0, items: [] };
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const dayExpenses = expenses.filter((e: any) => isSameDay(new Date(e.date), date));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const totalSpent = dayExpenses.reduce((acc: number, e: any) => acc + e.amount, 0);
+        if (!expenses) return { totalSpent: 0, count: 0, items: [] as Expense[] };
+        const dayExpenses = expenses.filter((e) => isSameDay(new Date(e.date), date));
+        const totalSpent = dayExpenses.reduce((acc, e) => acc + e.amount, 0);
         return { totalSpent, count: dayExpenses.length, items: dayExpenses };
     };
 
-    // ... (rest of code)
-
-
     // Calculate intensity for heatmap
-    // Simple logic: Scale based on PnL magnitude relative to a baseline?
-    // Or just fixed buckets for now.
+    // ...
 
+    type DayStats =
+        | { type: 'expense'; totalSpent: number; count: number; items: Expense[] }
+        | { type: 'trade'; pnl: number; count: number; wins: number; losses: number; invested: number; trades: Trade[] };
 
-    const selectedDayData = selectedDate ? (selectedAccount === 'PERSONAL' ? getExpenseDayStats(selectedDate) : getDayStats(selectedDate)) : null;
+    const selectedDayData: DayStats | null = selectedDate
+        ? (selectedAccount === 'PERSONAL'
+            ? { type: 'expense', ...getExpenseDayStats(selectedDate) }
+            : { type: 'trade', ...getDayStats(selectedDate) })
+        : null;
 
     // Header Stats
     let headerStatLabel = '';
@@ -135,6 +142,44 @@ export function Calendar() {
         headerStatLabel = 'Monthly P/L: ';
         headerStatValue = formatCurrency(monthlyPnL);
         headerStatColor = monthlyPnL >= 0 ? 'success' : 'error';
+    }
+
+    if (tradesError) {
+        return (
+            <Box sx={{ p: 4, width: '100%' }}>
+                <Paper variant="outlined" sx={{ p: 4, bgcolor: 'error.lighter', borderColor: 'error.main' }}>
+                    <Typography color="error" variant="h6" gutterBottom fontWeight="bold">
+                        Error loading calendar data
+                    </Typography>
+                    <Typography variant="body2" paragraph>
+                        {tradesError.message.split('https://')[0]}
+                    </Typography>
+                    {tradesError.message.includes('https://console.firebase.google.com') && (
+                        <Box sx={{ mt: 2 }}>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={() => {
+                                    const match = tradesError.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/);
+                                    if (match) window.open(match[0], '_blank');
+                                }}
+                                sx={{ textTransform: 'none', fontWeight: 'bold' }}
+                            >
+                                ⚡ Create Missing Index to Fix View
+                            </Button>
+                            <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.8 }}>
+                                Click the button above to create the required database index. It may take a few minutes to build.
+                            </Typography>
+                        </Box>
+                    )}
+                </Paper>
+            </Box>
+        );
+    }
+
+    if (tradesLoading && !trades) {
+        // Simple loading state
+        return <Box sx={{ p: 4 }}>Loading calendar...</Box>;
     }
 
     return (
@@ -358,13 +403,11 @@ export function Calendar() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
                                     <Typography variant="body2" color="text.secondary" fontWeight="medium">
-                                        {selectedAccount === 'PERSONAL' ? 'Total Spent:' : 'Total Daily P/L:'}
+                                        {selectedDayData.type === 'expense' ? 'Total Spent:' : 'Total Daily P/L:'}
                                     </Typography>
                                     <Chip
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        label={formatCurrency((selectedAccount === 'PERSONAL' ? (selectedDayData as any).totalSpent : (selectedDayData as any).pnl))}
-                                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                        color={selectedAccount === 'PERSONAL' ? 'warning' : ((selectedDayData as any).pnl >= 0 ? 'success' : 'error')}
+                                        label={formatCurrency(selectedDayData.type === 'expense' ? selectedDayData.totalSpent : selectedDayData.pnl)}
+                                        color={selectedDayData.type === 'expense' ? 'warning' : (selectedDayData.pnl >= 0 ? 'success' : 'error')}
                                         size="small"
                                         variant="filled"
                                         sx={{ fontWeight: 'bold' }}
@@ -378,10 +421,9 @@ export function Calendar() {
 
                         <DialogContent sx={{ p: 3, pt: 0 }}>
                             <Stack spacing={2} sx={{ mt: 2 }}>
-                                {selectedAccount === 'PERSONAL' ? (
+                                {selectedDayData.type === 'expense' ? (
                                     // EXPENSE LIST
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    (selectedDayData as any).items.map((expense: any) => {
+                                    selectedDayData.items.map((expense) => {
                                         const category = DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === expense.category);
                                         return (
                                             <Paper
@@ -422,8 +464,7 @@ export function Calendar() {
                                     })
                                 ) : (
                                     // TRADE LIST
-                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                                    (selectedDayData as any).trades.map((trade: any) => (
+                                    selectedDayData.trades.map((trade) => (
                                         <Paper
                                             key={trade.id}
                                             elevation={0}

@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import type { Trade } from '../types/trade';
 
-export function useFirestoreTrades() {
+export function useAllTrades() {
     const { user } = useAuth();
     const { selectedAccount } = useAccount();
     const [trades, setTrades] = useState<Trade[]>([]);
@@ -22,8 +22,7 @@ export function useFirestoreTrades() {
         setLoading(true);
         const tradesRef = collection(remoteDb, 'users', user.uid, 'trades');
         // Query: Filter by accountId and order by date (descending)
-        // Note: This requires a composite index in Firestore [accountId + date]
-        // If index is missing, Firestore will throw an error with a link to create it.
+        // This is necessary for accurate analytics across the entire dataset.
         const q = query(
             tradesRef,
             where('accountId', '==', selectedAccount),
@@ -35,7 +34,7 @@ export function useFirestoreTrades() {
             snapshot.forEach((doc) => {
                 const data = doc.data();
                 fetchedTrades.push({
-                    id: doc.id, // Firestore ID is string
+                    id: doc.id,
                     ...data,
                     // Convert Timestamps to Dates
                     date: data.date?.toDate?.() || new Date(data.date),
@@ -48,7 +47,7 @@ export function useFirestoreTrades() {
             setTrades(fetchedTrades);
             setLoading(false);
         }, (err) => {
-            console.error("Firestore Error:", err);
+            console.error("Firestore Error in useAllTrades:", err);
             setError(err);
             setLoading(false);
         });

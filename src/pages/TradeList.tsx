@@ -34,17 +34,15 @@ import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
 import { TradeDetailsDialog } from '../components/TradeDetailsDialog';
 import type { Trade } from '../types/trade';
 import { useMarketData } from '../context/MarketDataContext';
-import { useTrades } from '../context/TradesContext';
+// ... imports
+import { usePaginatedTrades } from '../hooks/usePaginatedTrades';
 
 export function TradeList() {
     const { selectedAccount } = useAccount();
     const { user } = useAuth();
     const { prices } = useMarketData();
 
-    const [paginationModel, setPaginationModel] = useState({
-        pageSize: 10,
-        page: 0,
-    });
+    // Removed paginationModel state
     const [csvImportOpen, setCsvImportOpen] = useState(false);
     const [selectedBroker, setSelectedBroker] = useState<BrokerName | 'auto'>('auto');
     const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -54,16 +52,13 @@ export function TradeList() {
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
-    // Use TradesContext
-    const { trades, loading: isLoading, deleteTrade } = useTrades();
-    const totalCount = trades.length;
+    // Use Paginated Hook
+    const { trades, loading: isLoading, error, deleteTrade, loadMore, hasMore } = usePaginatedTrades();
 
-    // Client-side pagination logic
-    const paginatedTrades = trades.slice(
-        paginationModel.page * paginationModel.pageSize,
-        (paginationModel.page + 1) * paginationModel.pageSize
-    );
+    // Total count is not available in cursor pagination without extra query. 
+    // We can show "Loaded: X"
 
+    // ... handleDelete (same) ...
     const handleDelete = async (id: number | string) => {
         if (!window.confirm('Are you sure you want to delete this trade?')) return;
         try {
@@ -74,15 +69,14 @@ export function TradeList() {
         }
     };
 
+    // ... columns (same) ...
     const columns: GridColDef[] = [
-        // ... (existing date columns)
         {
             field: 'date',
             headerName: 'Entry Date',
             width: 120,
             valueFormatter: (value: unknown) => {
                 if (!value) return '';
-                // Display UTC date to match storage
                 const date = new Date(value as string);
                 return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
             }
@@ -97,7 +91,6 @@ export function TradeList() {
                 return date.toLocaleDateString(undefined, { timeZone: 'UTC' });
             }
         },
-        // ... (daysOpen)
         {
             field: 'daysOpen',
             headerName: 'Days Open',
@@ -111,7 +104,6 @@ export function TradeList() {
             },
             valueFormatter: (value: unknown) => value !== null ? `${value}d` : '-'
         },
-        // ... (symbol)
         {
             field: 'symbol',
             headerName: 'Symbol',
@@ -123,7 +115,7 @@ export function TradeList() {
             )
         },
         { field: 'type', headerName: 'Type', width: 100 },
-        { field: 'side', headerName: 'Side', width: 90 }, // Simplified for brevity here, keep original renderCell if needed or re-add
+        { field: 'side', headerName: 'Side', width: 90 },
         { field: 'strategy', headerName: 'Strategy', width: 130 },
         {
             field: 'entryPrice',
@@ -132,7 +124,6 @@ export function TradeList() {
             type: 'number',
             valueFormatter: (value: unknown) => formatCurrency(value as number)
         },
-        // NEW: Current Price Column
         {
             field: 'currentPrice',
             headerName: 'Last Price',
@@ -141,8 +132,6 @@ export function TradeList() {
             renderCell: (params: GridRenderCellParams) => {
                 const trade = params.row as Trade;
                 if (trade.status === 'Closed') return '-';
-
-                // For Open trades, check cache
                 const marketData = prices[trade.symbol?.toUpperCase()];
                 if (marketData) {
                     return (
@@ -168,7 +157,6 @@ export function TradeList() {
             type: 'number',
             valueFormatter: (value: unknown) => value ? formatCurrency(value as number) : '-'
         },
-        // MODIFIED: PnL Column to show Unrealized if Open
         {
             field: 'pnl',
             headerName: 'P/L',
@@ -178,8 +166,6 @@ export function TradeList() {
                 const trade = params.row as Trade;
                 let val = trade.pnl;
                 let isUnrealized = false;
-
-                // Calculate Unrealized if Open
                 if (trade.status === 'Open' && trade.symbol) {
                     const marketData = prices[trade.symbol.toUpperCase()];
                     if (marketData) {
@@ -190,9 +176,7 @@ export function TradeList() {
                         isUnrealized = true;
                     }
                 }
-
                 if (val === undefined || val === null) return '-';
-
                 return (
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                         <Typography
@@ -263,6 +247,7 @@ export function TradeList() {
         }
     ];
 
+    // ... handlers (import/export logic same) ...
     const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             try {
@@ -296,9 +281,6 @@ export function TradeList() {
             const result = await importFromCsv(csvFile, selectedBroker, selectedAccount, user.uid);
             setImportStatus(result);
 
-            // Log results to console for debugging
-
-
             if (result.success > 0) {
                 setTimeout(() => {
                     setCsvImportOpen(false);
@@ -306,7 +288,7 @@ export function TradeList() {
                     setSelectedBroker('auto');
                     setImportStatus(null);
                     window.location.reload();
-                }, 3000); // Give more time to review errors
+                }, 3000);
             }
         } catch (err) {
             console.error('Import error:', err);
@@ -322,15 +304,11 @@ export function TradeList() {
         setImportStatus(null);
     };
 
-
-
     return (
         <Box sx={{ height: 'calc(100vh - 120px)', width: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
                 <Typography variant="h4" fontWeight="bold">Trade Log</Typography>
                 <Stack direction="row" spacing={2} sx={{ overflowX: 'auto', width: { xs: '100%', md: 'auto' }, pb: { xs: 1, md: 0 } }}>
-
-
                     <Button
                         variant="outlined"
                         startIcon={<CloudUpload />}
@@ -365,9 +343,10 @@ export function TradeList() {
                         variant="outlined"
                         onClick={async () => {
                             const { exportToCsv } = await import('../utils/importExport');
-                            exportToCsv(trades);
+                            exportToCsv(trades); // Exports ONLY loaded trades.
                         }}
                         startIcon={<CloudDownload />}
+                        title="Export currently loaded trades"
                     >
                         Export CSV
                     </Button>
@@ -384,16 +363,42 @@ export function TradeList() {
                 </Stack>
             </Box>
 
-            <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden', boxShadow: 3, borderRadius: 3 }}>
+            {/* Error Display */}
+            {error && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                    <Box component="div">
+                        <Typography variant="body2" gutterBottom>
+                            Error loading trades: {error.message.split('https://')[0]}
+                        </Typography>
+                        {error.message.includes('https://console.firebase.google.com') && (
+                            <Button
+                                variant="contained"
+                                color="error"
+                                size="small"
+                                onClick={() => {
+                                    const match = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/);
+                                    if (match) window.open(match[0], '_blank');
+                                }}
+                                sx={{ mt: 1, textTransform: 'none', fontWeight: 'bold' }}
+                            >
+                                ⚡ Create Missing Index (Click Here)
+                            </Button>
+                        )}
+                        <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.8 }}>
+                            You need to click the button above and create the index in Firebase for this view to work.
+                            It may take a few minutes to build.
+                        </Typography>
+                    </Box>
+                </Alert>
+            )}
+
+            <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden', boxShadow: 3, borderRadius: 3, display: 'flex', flexDirection: 'column' }}>
                 <DataGrid
-                    rows={paginatedTrades}
+                    rows={trades} // Uses raw trades array
                     columns={columns}
-                    rowCount={totalCount}
+                    rowCount={trades.length}
                     loading={isLoading}
-                    pageSizeOptions={[25, 50, 100]}
-                    paginationModel={paginationModel}
-                    paginationMode="server"
-                    onPaginationModelChange={setPaginationModel}
+                    hideFooter
                     checkboxSelection
                     disableRowSelectionOnClick
                     slots={{ toolbar: GridToolbar }}
@@ -406,6 +411,21 @@ export function TradeList() {
                         }
                     }}
                 />
+
+                {/* Load More Footer */}
+                <Box sx={{ p: 2, display: 'flex', justifyContent: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
+                    {hasMore ? (
+                        <Button
+                            onClick={loadMore}
+                            disabled={isLoading}
+                            variant="outlined"
+                        >
+                            {isLoading ? 'Loading...' : 'Load More Trades'}
+                        </Button>
+                    ) : (
+                        <Typography variant="caption" color="text.secondary">All trades loaded</Typography>
+                    )}
+                </Box>
             </Paper>
 
             {/* CSV Import Dialog */}

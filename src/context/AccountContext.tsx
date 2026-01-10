@@ -18,7 +18,7 @@ export const useAccount = () => useContext(AccountContext);
 export const AccountProvider = ({ children }: { children: React.ReactNode }) => {
     const [selectedAccount, setSelectedAccount] = useState<AccountType>(() => {
         const saved = localStorage.getItem('selectedAccount');
-        return (saved === 'TFSA' || saved === 'FHSA' || saved === 'NON_REGISTERED') ? saved : 'TFSA';
+        return (saved === 'TFSA' || saved === 'FHSA' || saved === 'NON_REGISTERED' || saved === 'PERSONAL') ? saved : 'TFSA';
     });
 
     const switchAccount = (account: AccountType) => {

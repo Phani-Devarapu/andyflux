@@ -26,7 +26,7 @@ import { useMarketData } from '../context/MarketDataContext';
 
 type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 
-import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
+import { useAllTrades } from '../hooks/useAllTrades';
 
 export const TickerAnalytics = () => {
     // const { selectedAccount } = useAccount(); // Unused
@@ -36,7 +36,7 @@ export const TickerAnalytics = () => {
     const { prices } = useMarketData();
 
     // Switch to Cloud Data
-    const { trades } = useFirestoreTrades();
+    const { trades } = useAllTrades();
 
     const allTickers = useMemo(() => {
         if (!trades) return [];

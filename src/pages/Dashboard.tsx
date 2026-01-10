@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import * as React from 'react';
 // import { db } from '../db/db'; // Removed
 import { useMarketData } from '../context/MarketDataContext';
-import { useTrades } from '../context/TradesContext';
+// import { useTrades } from '../context/TradesContext';
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -36,13 +36,17 @@ ChartJS.register(
     ArcElement
 );
 
-export function Dashboard() {
-    // const { selectedAccount } = useAccount(); // Unused in this component
-    const { user } = useAuth();
-    // Use TradesContext (already filtered by selectedAccount)
-    const { trades, loading } = useTrades();
-    const theme = useTheme();
+// ... imports
+import { useTradeStats } from '../hooks/useTradeStats';
+import { useRecentTrades } from '../hooks/useRecentTrades';
 
+export function Dashboard() {
+    const { user } = useAuth();
+    // Replaced useTrades with optimized hooks
+    const { stats, loading: statsLoading, error } = useTradeStats();
+    const { trades: recentTrades, loading: recentLoading } = useRecentTrades(100);
+
+    const theme = useTheme();
     const { prices } = useMarketData();
     const [unrealizedPnL, setUnrealizedPnL] = React.useState<number>(0);
 
@@ -53,10 +57,10 @@ export function Dashboard() {
         return 'Good evening';
     }, []);
 
-    // Calculate Unrealized PnL from global prices
+    // Calculate Unrealized PnL from recent trades (approximation for performance)
     React.useEffect(() => {
-        if (!trades) return;
-        const openTrades = trades.filter(t => t.status === 'Open');
+        if (!recentTrades) return;
+        const openTrades = recentTrades.filter(t => t.status === 'Open');
 
         if (openTrades.length === 0) {
             setUnrealizedPnL(0);
@@ -77,9 +81,32 @@ export function Dashboard() {
             }
         }
         setUnrealizedPnL(total);
-    }, [trades, prices]);
+    }, [recentTrades, prices]);
 
-    if (loading) {
+    // Error Display
+    if (error) {
+        return (
+            <Box sx={{ p: 4 }}>
+                <Typography color="error" variant="h6" gutterBottom>Error loading dashboard data</Typography>
+                <Typography variant="body2" paragraph>{error.message.split('https://')[0]}</Typography>
+                {error.message.includes('https://console.firebase.google.com') && (
+                    <Button
+                        variant="contained"
+                        color="error"
+                        onClick={() => {
+                            const match = error.message.match(/https:\/\/console\.firebase\.google\.com[^\s]*/);
+                            if (match) window.open(match[0], '_blank');
+                        }}
+                        sx={{ mt: 1, textTransform: 'none' }}
+                    >
+                        Create Missing Index
+                    </Button>
+                )}
+            </Box>
+        );
+    }
+
+    if (statsLoading || recentLoading) {
         return (
             <Grid container spacing={3}>
                 {[1, 2, 3, 4].map(i => (
@@ -91,11 +118,8 @@ export function Dashboard() {
         );
     }
 
-    // Derived state (not hooks)
-    const closedTrades = trades.filter(t => t.status === 'Closed');
-
-    // Empty State
-    if (trades.length === 0) {
+    // Empty State Check (using stats.totalTrades)
+    if (!stats || stats.totalTrades === 0) {
         return (
             <Box sx={{
                 height: '80vh',
@@ -115,7 +139,6 @@ export function Dashboard() {
                 }}>
                     <BarChart3 size={64} strokeWidth={1.5} />
                 </Box>
-
                 <Typography variant="h3" fontWeight={800} sx={{
                     background: 'linear-gradient(45deg, #10B981, #3B82F6)',
                     backgroundClip: 'text',
@@ -125,12 +148,10 @@ export function Dashboard() {
                 }}>
                     Welcome to Andy Flux
                 </Typography>
-
                 <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600 }}>
                     Your ultimate trading journal. Track your performance, analyze your strategies,
                     and master the market. Start by logging your first trade!
                 </Typography>
-
                 <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
                     <Button
                         component={Link}
@@ -142,43 +163,30 @@ export function Dashboard() {
                     >
                         Log First Trade
                     </Button>
-
                 </Stack>
             </Box>
         );
     }
 
-    const totalPnL = closedTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
-    const winCount = closedTrades.filter(t => (t.pnl || 0) > 0).length;
-    const lossCount = closedTrades.filter(t => (t.pnl || 0) < 0).length;
-    const totalTrades = winCount + lossCount;
-    const winRate = totalTrades > 0 ? (winCount / totalTrades) * 100 : 0;
-
-    const wins = closedTrades.filter(t => (t.pnl || 0) > 0);
-    const losses = closedTrades.filter(t => (t.pnl || 0) < 0);
-    const avgWin = wins.length > 0 ? wins.reduce((acc, t) => acc + (t.pnl || 0), 0) / wins.length : 0;
-    const avgLoss = losses.length > 0 ? losses.reduce((acc, t) => acc + (t.pnl || 0), 0) / losses.length : 0;
-
-
-    // Equity Curve Data
-    // We now use EquityChart component which handles aggregation
+    // Use aggregations from stats directly
+    const { totalPnL, winRate, avgWin, avgLoss, wins, losses } = stats;
 
     const winRateData = {
         labels: ['Wins', 'Losses'],
         datasets: [
             {
-                data: [winCount, lossCount],
+                data: [wins, losses],
                 backgroundColor: [theme.palette.success.main, theme.palette.error.main],
                 borderColor: [theme.palette.success.main, theme.palette.error.main],
                 borderWidth: 1,
             },
         ],
     };
+
     return (
         <Box sx={{ flexGrow: 1 }} >
-            {/* Premium Header */}
-            < Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }
-            }>
+            {/* Header */}
+            <Box sx={{ mb: 4, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { xs: 'flex-start', md: 'center' }, gap: 2 }}>
                 <Box>
                     <Typography variant="h4" sx={{
                         fontWeight: 800,
@@ -214,15 +222,15 @@ export function Dashboard() {
                 >
                     New Trade
                 </Button>
-            </Box >
+            </Box>
 
             {/* Stats Cards */}
-            < Grid container spacing={3} sx={{ mb: 4 }}>
+            <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid size={{ xs: 12, md: 3 }}>
                     <StatsCard title="NET P/L" value={totalPnL} highlight />
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
-                    <StatsCard title="WIN RATE" value={`${winRate.toFixed(1)}%`} subValue={`${winCount}W - ${lossCount}L`} />
+                    <StatsCard title="WIN RATE" value={`${winRate.toFixed(1)}%`} subValue={`${wins}W - ${losses}L`} />
                 </Grid>
                 <Grid size={{ xs: 12, md: 3 }}>
                     <StatsCard title="AVG WIN" value={avgWin} highlight />
@@ -230,10 +238,10 @@ export function Dashboard() {
                 <Grid size={{ xs: 12, md: 3 }}>
                     <StatsCard title="AVG LOSS" value={avgLoss} highlight />
                 </Grid>
-            </Grid >
+            </Grid>
 
             {/* Charts */}
-            < Grid container spacing={3} >
+            <Grid container spacing={3} >
                 <Grid size={{ xs: 12, lg: 8 }}>
                     <Card variant="outlined" sx={{ height: { xs: 300, md: 400 } }}>
                         <CardContent sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -241,8 +249,8 @@ export function Dashboard() {
                                 Equity Curve (Daily Growth)
                             </Typography>
                             <Box sx={{ flexGrow: 1, position: 'relative' }}>
-                                {trades && trades.length > 0 ? (
-                                    <EquityChart trades={trades} unrealizedPnL={unrealizedPnL} />
+                                {recentTrades && recentTrades.length > 0 ? (
+                                    <EquityChart trades={recentTrades} unrealizedPnL={unrealizedPnL} />
                                 ) : (
                                     <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                         <Typography color="text.secondary">No closed trades yet.</Typography>
@@ -259,7 +267,7 @@ export function Dashboard() {
                                 Win/Loss Ratio
                             </Typography>
                             <Box sx={{ flexGrow: 1, position: 'relative', display: 'flex', justifyContent: 'center' }}>
-                                {totalTrades > 0 ? (
+                                {stats.totalTrades > 0 ? (
                                     <Doughnut
                                         data={winRateData}
                                         options={{
@@ -276,8 +284,8 @@ export function Dashboard() {
                         </CardContent>
                     </Card>
                 </Grid>
-            </Grid >
-        </Box >
+            </Grid>
+        </Box>
     );
 }
 

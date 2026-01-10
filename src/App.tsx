@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, CssBaseline } from '@mui/material';
-import { TradesProvider } from './context/TradesContext';
+// import { TradesProvider } from './context/TradesContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { Dashboard } from './pages/Dashboard';
 import { TradeList } from './pages/TradeList';
@@ -43,7 +43,7 @@ function AppContent() {
           <Route path="/ticker-analytics" element={<TickerAnalytics />} />
           <Route path="/strategy-analytics" element={<StrategyAnalytics />} />
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/calendar" element={<Calendar />} />
+
           <Route path="/activity-reports" element={<ActivityReport />} />
           <Route path="/expenses" element={<ExpenseManagerPage />} />
         </Route>
@@ -60,11 +60,11 @@ function App() {
   return (
     <AccountProvider>
       <ColorModeProvider>
-        <TradesProvider>
-          <FxRateProvider>
-            <AppContent />
-          </FxRateProvider>
-        </TradesProvider>
+        {/* <TradesProvider> Removed */}
+        <FxRateProvider>
+          <AppContent />
+        </FxRateProvider>
+        {/* </TradesProvider> */}
       </ColorModeProvider>
     </AccountProvider>
   );

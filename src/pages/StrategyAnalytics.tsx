@@ -24,14 +24,14 @@ ChartJS.register(
 );
 
 
-import { useFirestoreTrades } from '../hooks/useFirestoreTrades';
+import { useAllTrades } from '../hooks/useAllTrades';
 
 export function StrategyAnalytics() {
     // const { selectedAccount } = useAccount(); // Unused in hook
     // const { user } = useAuth(); // Unused in hook
 
     // Switch to Cloud Data
-    const { trades, loading } = useFirestoreTrades();
+    const { trades, loading } = useAllTrades();
     const theme = useTheme();
 
     if (loading) return <Typography>Loading...</Typography>;

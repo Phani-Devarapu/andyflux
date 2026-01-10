@@ -335,7 +335,7 @@ export function TradeForm() {
         : 0;
 
     return (
-        <Box sx={{ maxWidth: 'md', mx: 'auto', p: 2 }}>
+        <Box sx={{ maxWidth: '1400px', mx: 'auto', p: 3 }}>
             <Box sx={{ mb: 4, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Typography variant="h4" fontWeight="bold">
                     {isEditMode ? 'Edit Trade' : 'New Trade'}
@@ -349,10 +349,42 @@ export function TradeForm() {
                 </Button>
             </Box>
 
-            <Paper component="form" onSubmit={handleSubmit(onSubmit, onError)} sx={{ p: 4 }}>
+            <Paper
+                component="form"
+                onSubmit={handleSubmit(onSubmit, onError)}
+                sx={{
+                    p: 4,
+                    borderRadius: 3,
+                    background: theme => theme.palette.mode === 'dark'
+                        ? 'linear-gradient(135deg, rgba(30,41,59,0.8) 0%, rgba(15,23,42,0.9) 100%)'
+                        : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: theme => theme.palette.mode === 'dark'
+                        ? '0 8px 32px rgba(0,0,0,0.4)'
+                        : '0 8px 32px rgba(0,0,0,0.08)'
+                }}
+            >
                 <Grid container spacing={3}>
-                    {/* Basic Info */}
-                    <Grid size={{ xs: 12, md: 6 }}>
+                    {/* Section: Basic Information */}
+                    <Grid size={{ xs: 12 }}>
+                        <Typography
+                            variant="h6"
+                            fontWeight="bold"
+                            sx={{
+                                mb: 2,
+                                pb: 1,
+                                borderBottom: '2px solid',
+                                borderColor: 'primary.main',
+                                background: 'linear-gradient(to right, #60A5FA, #34D399)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent'
+                            }}
+                        >
+                            Basic Information
+                        </Typography>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <Controller
                             name="date"
                             control={control}
@@ -379,40 +411,7 @@ export function TradeForm() {
                             )}
                         />
                     </Grid>
-
-
-// ...
-
                     <Grid size={{ xs: 12, md: 4 }}>
-                        <Controller
-                            name="exitDate"
-                            control={control}
-                            render={({ field: { value, onChange }, fieldState: { error } }) => (
-                                <DatePicker
-                                    label="Exit Date"
-                                    value={value ? new Date(value) : null}
-                                    disabled={status === 'Open'}
-                                    onChange={(newValue) => {
-                                        if (newValue) {
-                                            const offset = newValue.getTimezoneOffset();
-                                            const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
-                                            onChange(adjustedDate.toISOString().split('T')[0]);
-                                        } else {
-                                            onChange(undefined);
-                                        }
-                                    }}
-                                    slotProps={{
-                                        textField: {
-                                            fullWidth: true,
-                                            error: !!error,
-                                            helperText: error?.message || (status === 'Open' ? 'Not applicable for open trades' : '')
-                                        }
-                                    }}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
                         <TextField
                             label="Symbol"
                             fullWidth
@@ -420,12 +419,77 @@ export function TradeForm() {
                             {...register('symbol')}
                             error={!!errors.symbol}
                             helperText={errors.symbol?.message}
-                            slotProps={{ input: { style: { textTransform: 'uppercase' } } }}
+                            slotProps={{
+                                input: {
+                                    style: { textTransform: 'uppercase' },
+                                    sx: {
+                                        fontSize: '1.1rem',
+                                        fontWeight: 600
+                                    }
+                                }
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    '&:hover fieldset': {
+                                        borderColor: 'primary.main',
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderWidth: 2,
+                                    }
+                                }
+                            }}
                         />
                     </Grid>
 
-                    {/* Type & Side */}
-                    <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <Controller
+                            name="strategy"
+                            control={control}
+                            render={({ field: { onChange, value } }) => (
+                                <Autocomplete
+                                    freeSolo
+                                    options={[
+                                        'Trend Following', 'Reversal', 'Breakout', 'Scalp', 'Swing', 'News Catalyst', 'FOMO',
+                                        'Cash Secured Put', 'Covered Call', 'Long Call', 'Long Put', 'Long Stock', 'Short Stock'
+                                    ]}
+                                    value={value || ''}
+                                    onChange={(_, newValue) => {
+                                        onChange(newValue);
+                                        // Auto-select 'Option' type if strategy contains option-related keywords
+                                        const optionStrategies = ['Cash Secured Put', 'Covered Call', 'Long Call', 'Long Put', 'Put', 'Call'];
+                                        if (newValue && optionStrategies.some(s => newValue.includes(s))) {
+                                            setValue('type', 'Option');
+                                        }
+                                    }}
+                                    renderInput={(params) => (
+                                        <TextField
+                                            {...params}
+                                            label="Strategy / Setup"
+                                            placeholder="e.g. Reversal, Trend..."
+                                            helperText="Select or type custom strategy"
+                                        />
+                                    )}
+                                />
+                            )}
+                        />
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                            select
+                            label="Status"
+                            fullWidth
+                            {...register('status')}
+                            error={!!errors.status}
+                            helperText={errors.status?.message}
+                            SelectProps={{ native: true }}
+                        >
+                            <option value="Open">Open</option>
+                            <option value="Closed">Closed</option>
+                        </TextField>
+                    </Grid>
+
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <TextField
                             select
                             label="Type"
@@ -444,50 +508,80 @@ export function TradeForm() {
                         </TextField>
                     </Grid>
 
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <Controller
-                            name="strategy"
-                            control={control}
-                            render={({ field: { onChange, value } }) => (
-                                <Autocomplete
-                                    freeSolo
-                                    options={[
-                                        'Trend Following', 'Reversal', 'Breakout', 'Scalp', 'Swing', 'News Catalyst', 'FOMO',
-                                        'Cash Secured Put', 'Covered Call', 'Long Call', 'Long Put', 'Long Stock', 'Short Stock'
-                                    ]}
-                                    value={value || ''}
-                                    onChange={(_, newValue) => onChange(newValue)}
-                                    renderInput={(params) => (
-                                        <TextField
-                                            {...params}
-                                            label="Strategy / Setup"
-                                            placeholder="e.g. Reversal, Trend..."
-                                            helperText="Select or type custom strategy"
-                                        />
-                                    )}
-                                />
-                            )}
-                        />
-                    </Grid>
-                    <Grid size={{ xs: 12, md: 12 }}>
-                        <FormControl component="fieldset">
-                            <Typography variant="caption" color="text.secondary">Side</Typography>
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <FormControl component="fieldset" fullWidth>
+                            <Typography
+                                variant="subtitle2"
+                                sx={{
+                                    mb: 1.5,
+                                    fontWeight: 600,
+                                    color: 'text.secondary'
+                                }}
+                            >
+                                Side
+                            </Typography>
                             <Controller
                                 name="side"
                                 control={control}
                                 render={({ field }) => (
-                                    <RadioGroup row {...field}>
+                                    <RadioGroup row {...field} sx={{ gap: 1 }}>
                                         <FormControlLabel
                                             value="Buy"
                                             control={<Radio color="success" />}
-                                            label={type === 'Option' ? 'Buy to Open (Debit)' : 'Long (Buy)'}
-                                            sx={{ color: 'success.main' }}
+                                            label={type === 'Option' ? 'Buy to Open' : 'Long'}
+                                            sx={{
+                                                flex: 1,
+                                                m: 0,
+                                                p: 1.5,
+                                                border: '2px solid',
+                                                borderColor: field.value === 'Buy' ? 'success.main' : 'divider',
+                                                borderRadius: 2,
+                                                bgcolor: field.value === 'Buy'
+                                                    ? theme => theme.palette.mode === 'dark'
+                                                        ? 'rgba(16, 185, 129, 0.1)'
+                                                        : 'rgba(16, 185, 129, 0.05)'
+                                                    : 'transparent',
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    borderColor: 'success.main',
+                                                    bgcolor: theme => theme.palette.mode === 'dark'
+                                                        ? 'rgba(16, 185, 129, 0.08)'
+                                                        : 'rgba(16, 185, 129, 0.03)'
+                                                },
+                                                '& .MuiFormControlLabel-label': {
+                                                    fontWeight: field.value === 'Buy' ? 700 : 500,
+                                                    fontSize: '0.875rem'
+                                                }
+                                            }}
                                         />
                                         <FormControlLabel
                                             value="Sell"
                                             control={<Radio color="error" />}
-                                            label={type === 'Option' ? 'Sell to Open (Credit)' : 'Short (Sell)'}
-                                            sx={{ color: 'error.main' }}
+                                            label={type === 'Option' ? 'Sell to Open' : 'Short'}
+                                            sx={{
+                                                flex: 1,
+                                                m: 0,
+                                                p: 1.5,
+                                                border: '2px solid',
+                                                borderColor: field.value === 'Sell' ? 'error.main' : 'divider',
+                                                borderRadius: 2,
+                                                bgcolor: field.value === 'Sell'
+                                                    ? theme => theme.palette.mode === 'dark'
+                                                        ? 'rgba(239, 68, 68, 0.1)'
+                                                        : 'rgba(239, 68, 68, 0.05)'
+                                                    : 'transparent',
+                                                transition: 'all 0.2s',
+                                                '&:hover': {
+                                                    borderColor: 'error.main',
+                                                    bgcolor: theme => theme.palette.mode === 'dark'
+                                                        ? 'rgba(239, 68, 68, 0.08)'
+                                                        : 'rgba(239, 68, 68, 0.03)'
+                                                },
+                                                '& .MuiFormControlLabel-label': {
+                                                    fontWeight: field.value === 'Sell' ? 700 : 500,
+                                                    fontSize: '0.875rem'
+                                                }
+                                            }}
                                         />
                                     </RadioGroup>
                                 )}
@@ -495,11 +589,36 @@ export function TradeForm() {
                         </FormControl>
                     </Grid>
 
+
+
                     {/* Option Details - Only shown if type is Option */}
                     {type === 'Option' && (
                         <Grid size={{ xs: 12 }}>
-                            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.paper', mb: 2 }}>
-                                <Typography variant="subtitle2" gutterBottom color="primary">Option Details</Typography>
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    p: 3,
+                                    bgcolor: theme => theme.palette.mode === 'dark'
+                                        ? 'rgba(99, 102, 241, 0.05)'
+                                        : 'rgba(99, 102, 241, 0.02)',
+                                    borderColor: 'primary.main',
+                                    borderRadius: 2,
+                                    borderWidth: 1.5
+                                }}
+                            >
+                                <Typography
+                                    variant="subtitle2"
+                                    gutterBottom
+                                    sx={{
+                                        color: 'primary.main',
+                                        fontWeight: 700,
+                                        mb: 2,
+                                        textTransform: 'uppercase',
+                                        letterSpacing: 1
+                                    }}
+                                >
+                                    Option Details
+                                </Typography>
                                 <Grid container spacing={3}>
                                     <Grid size={{ xs: 12, md: 4 }}>
                                         <TextField
@@ -539,6 +658,7 @@ export function TradeForm() {
                                             fullWidth
                                             {...register('optionType')}
                                             SelectProps={{ native: true }}
+                                            InputLabelProps={{ shrink: true }}
                                         >
                                             <option value="">Select...</option>
                                             <option value="Call">Call</option>
@@ -549,6 +669,26 @@ export function TradeForm() {
                             </Paper>
                         </Grid>
                     )}
+
+                    {/* Section: Price & Quantity */}
+                    <Grid size={{ xs: 12 }}>
+                        <Typography
+                            variant="h6"
+                            fontWeight="bold"
+                            sx={{
+                                mt: 2,
+                                mb: 2,
+                                pb: 1,
+                                borderBottom: '2px solid',
+                                borderColor: 'success.main',
+                                background: 'linear-gradient(to right, #10B981, #34D399)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent'
+                            }}
+                        >
+                            Price & Quantity
+                        </Typography>
+                    </Grid>
 
                     {/* Price & Qty */}
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -616,11 +756,37 @@ export function TradeForm() {
                         />
                     </Grid>
 
+                    {/* Section: Risk Management */}
+                    <Grid size={{ xs: 12 }}>
+                        <Typography
+                            variant="h6"
+                            fontWeight="bold"
+                            sx={{
+                                mt: 2,
+                                mb: 2,
+                                pb: 1,
+                                borderBottom: '2px solid',
+                                borderColor: 'warning.main',
+                                background: 'linear-gradient(to right, #F59E0B, #FBBF24)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent'
+                            }}
+                        >
+                            Risk Management
+                        </Typography>
+                    </Grid>
+
                     {/* Risk Management */}
                     <Grid size={{ xs: 12 }}>
-                        <Paper variant="outlined" sx={{ p: 2, bgcolor: 'background.default' }}>
+                        <Paper variant="outlined" sx={{
+                            p: 3,
+                            bgcolor: 'background.default',
+                            borderRadius: 2,
+                            border: '1px solid',
+                            borderColor: 'divider'
+                        }}>
                             <Grid container spacing={3}>
-                                <Grid size={{ xs: 12, md: 6 }}>
+                                <Grid size={{ xs: 12, md: 4 }}>
                                     <TextField
                                         label="Stop Loss"
                                         type="number"
@@ -629,7 +795,7 @@ export function TradeForm() {
                                         {...register('stopLoss')}
                                     />
                                 </Grid>
-                                <Grid size={{ xs: 12, md: 6 }}>
+                                <Grid size={{ xs: 12, md: 4 }}>
                                     <TextField
                                         label="Target"
                                         type="number"
@@ -647,26 +813,30 @@ export function TradeForm() {
                         </Paper>
                     </Grid>
 
-                    {/* Metadata */}
-                    <Grid size={{ xs: 12, md: 6 }}>
-                        <TextField
-                            select
-                            label="Status"
-                            fullWidth
-                            {...register('status')}
-                            error={!!errors.status}
-                            helperText={errors.status?.message}
-                            SelectProps={{ native: true }}
+
+
+                    {/* Section: Psychology & Analysis */}
+                    <Grid size={{ xs: 12 }}>
+                        <Typography
+                            variant="h6"
+                            fontWeight="bold"
+                            sx={{
+                                mt: 2,
+                                mb: 2,
+                                pb: 1,
+                                borderBottom: '2px solid',
+                                borderColor: 'error.main',
+                                background: 'linear-gradient(to right, #EF4444, #F87171)',
+                                WebkitBackgroundClip: 'text',
+                                WebkitTextFillColor: 'transparent'
+                            }}
                         >
-                            <option value="Open">Open</option>
-                            <option value="Closed">Closed</option>
-                        </TextField>
+                            Psychology & Mistakes
+                        </Typography>
                     </Grid>
 
-
-
                     {/* Psychology & Mistakes */}
-                    <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <Controller
                             name="mistakes"
                             control={control}
@@ -696,7 +866,7 @@ export function TradeForm() {
                             )}
                         />
                     </Grid>
-                    <Grid size={{ xs: 12, md: 6 }}>
+                    <Grid size={{ xs: 12, md: 4 }}>
                         <Controller
                             name="emotions"
                             control={control}
@@ -766,14 +936,32 @@ export function TradeForm() {
                         </Typography>
                     </Grid>
 
-                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+                    <Grid size={{ xs: 12 }} sx={{ display: 'flex', justifyContent: 'flex-end', mt: 4 }}>
                         <Button
                             type="submit"
                             variant="contained"
                             size="large"
                             disabled={isSubmitting}
                             startIcon={<Save />}
-                            sx={{ px: 4 }}
+                            sx={{
+                                px: 6,
+                                py: 1.5,
+                                borderRadius: 2,
+                                fontWeight: 'bold',
+                                fontSize: '1.1rem',
+                                background: 'linear-gradient(45deg, #10B981 30%, #34D399 90%)',
+                                boxShadow: '0 4px 20px rgba(16, 185, 129, 0.4)',
+                                transition: 'all 0.3s',
+                                '&:hover': {
+                                    background: 'linear-gradient(45deg, #059669 30%, #10B981 90%)',
+                                    boxShadow: '0 6px 25px rgba(16, 185, 129, 0.6)',
+                                    transform: 'translateY(-2px)'
+                                },
+                                '&:disabled': {
+                                    background: 'linear-gradient(45deg, #6B7280 30%, #9CA3AF 90%)',
+                                    boxShadow: 'none'
+                                }
+                            }}
                         >
                             {isSubmitting ? 'Saving...' : 'Save Trade'}
                         </Button>

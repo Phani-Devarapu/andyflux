@@ -64,10 +64,9 @@ import { importFromCsv } from '../utils/importExport';
 import type { StoredDocument } from '../types/document';
 // import { expenseDb } from '../db/expenseDb'; // Removed
 import { DEFAULT_EXPENSE_CATEGORIES } from '../types/expenseTypes';
-import { useTrades } from '../context/TradesContext';
+import { useAllTrades } from '../hooks/useAllTrades';
 import { useFirestoreDocuments } from '../hooks/useFirestoreDocuments';
 import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
-
 
 // Register ChartJS components
 ChartJS.register(
@@ -106,10 +105,8 @@ const CHART_COLORS = [
     '#a2d2ff'  // Baby Blue
 ];
 
-// ... imports
 import { useMarketData } from '../context/MarketDataContext';
 
-// ... class definition
 export function ActivityReport() {
     const { user } = useAuth();
     const { selectedAccount } = useAccount();
@@ -127,8 +124,17 @@ export function ActivityReport() {
     const [uploadStatus, setUploadStatus] = useState<string>('');
     const [uploadError, setUploadError] = useState<string | null>(null);
 
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({ key: 'invested', direction: 'desc' });
+
+    const handleSort = (key: string) => {
+        setSortConfig(current => ({
+            key,
+            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
+        }));
+    };
+
     // Fetch Trades
-    const { trades: rawTrades } = useTrades();
+    const { trades: rawTrades } = useAllTrades();
 
     // Fetch Documents
     const { documents: allDocuments } = useFirestoreDocuments();
@@ -173,18 +179,19 @@ export function ActivityReport() {
         return Object.values(groups).map(g => ({
             ...g,
             avgPrice: g.invested / g.qtyAdded
-        })).sort((a, b) => b.invested - a.invested);
-    }, [filteredTrades]);
+        })).sort((a, b) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const aValue = (a as any)[sortConfig.key];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const bValue = (b as any)[sortConfig.key];
 
-    // Sort Config state (missing)
-    const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'invested', direction: 'desc' });
+            if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [filteredTrades, sortConfig]);
 
-    const handleSort = (key: string) => {
-        setSortConfig(current => ({
-            key,
-            direction: current.key === key && current.direction === 'desc' ? 'asc' : 'desc'
-        }));
-    };
+
 
     // Chart Options & Data (missing)
     const chartOptions = {

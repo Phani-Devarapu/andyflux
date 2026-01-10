@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../../db/db';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useAccount } from '../../context/AccountContext';
+import { useAllTrades } from '../../hooks/useAllTrades';
+import { useFirestoreGoals } from '../../hooks/useFirestoreGoals';
+import { db as remoteDb } from '../../utils/firebase';
+import { collection, addDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import {
     Box,
     Typography,
@@ -24,49 +26,48 @@ export function GoalsWidget() {
     const { selectedAccount } = useAccount();
     const [open, setOpen] = useState(false);
 
+    // Hooks for data
+    const { trades } = useAllTrades();
+    const { goals } = useFirestoreGoals();
+
     const today = new Date();
     const currentYear = today.getFullYear();
     const currentMonth = today.getMonth() + 1; // 1-12
 
-    // Fetch Goal for valid account
-    const goal = useLiveQuery(async () => {
-        if (!user || !selectedAccount) return null;
-        return await db.goals
-            .where('[userId+accountId+year+month]')
-            .equals([user.uid, selectedAccount, currentYear, currentMonth])
-            .first();
-    }, [user, selectedAccount, currentYear, currentMonth]);
+    // Find current goal
+    const goal = useMemo(() => {
+        if (!goals || !selectedAccount) return null;
+        return goals.find(g =>
+            g.accountId === selectedAccount &&
+            g.year === currentYear &&
+            g.month === currentMonth
+        );
+    }, [goals, selectedAccount, currentYear, currentMonth]);
 
-    // Fetch Stats to compare against goal
-    const currentStats = useLiveQuery(async () => {
-        if (!user || !selectedAccount) return { pnl: 0, volume: 0, winRate: 0 };
+    // Calculate Stats
+    const currentStats = useMemo(() => {
+        if (!user || !selectedAccount || !trades) return { pnl: 0 };
 
-        const trades = await db.trades
-            .where('[userId+accountId]')
-            .equals([user.uid, selectedAccount])
-            .filter(t =>
-                t.status === 'Closed' &&
-                t.exitDate !== undefined &&
-                t.exitDate.getFullYear() === currentYear &&
-                t.exitDate.getMonth() + 1 === currentMonth
-            )
-            .toArray();
+        const monthTrades = trades.filter(t =>
+            t.accountId === selectedAccount &&
+            t.status === 'Closed' &&
+            t.exitDate &&
+            t.exitDate.getFullYear() === currentYear &&
+            t.exitDate.getMonth() + 1 === currentMonth
+        );
 
-        const pnl = trades.reduce((acc, t) => acc + (t.pnl || 0), 0);
-        // Volume could be 'number of trades' or 'total traded volume'. Let's use # of trades for simplicity or allow user to choose?
-        // User request: "Monthly Goals". Usually PnL.
-        // Let's support PnL primarily.
-
+        const pnl = monthTrades.reduce((acc, t) => acc + (t.pnl || 0), 0);
         return { pnl };
-    }, [user, selectedAccount, currentYear, currentMonth]);
+    }, [user, selectedAccount, trades, currentYear, currentMonth]);
 
     // Form State
     const [targetAmount, setTargetAmount] = useState<string>('');
 
     useEffect(() => {
         if (open && goal) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setTargetAmount(goal.targetAmount.toString());
+        } else if (open && !goal) {
+            setTargetAmount('');
         }
     }, [open, goal]);
 
@@ -77,20 +78,22 @@ export function GoalsWidget() {
 
         try {
             if (goal && goal.id) {
-                await db.goals.update(goal.id, {
+                // Update existing
+                await updateDoc(doc(remoteDb, 'users', user.uid, 'goals', goal.id), {
                     targetAmount: amount,
-                    updatedAt: new Date()
+                    updatedAt: serverTimestamp()
                 });
             } else {
-                await db.goals.add({
+                // Create new
+                await addDoc(collection(remoteDb, 'users', user.uid, 'goals'), {
                     userId: user.uid,
                     accountId: selectedAccount,
                     year: currentYear,
                     month: currentMonth,
-                    type: 'PnL', // Default to PnL for now
+                    type: 'PnL',
                     targetAmount: amount,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
                 });
             }
             setOpen(false);
