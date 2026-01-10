@@ -506,16 +506,16 @@ export function Calendar() {
                                                     </Stack>
                                                     <Box sx={{ textAlign: 'right' }}>
                                                         <Typography variant="caption" display="block" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-                                                            {(trade.pnl && trade.pnl !== 0) ? 'REALIZED P/L' : 'INVESTED'}
+                                                            {(trade.pnl !== undefined && trade.pnl !== null) ? 'REALIZED P/L' : 'INVESTED'}
                                                         </Typography>
                                                         <Typography
                                                             variant="h6"
                                                             fontWeight="900"
-                                                            color={(trade.pnl && trade.pnl !== 0)
+                                                            color={(trade.pnl !== undefined && trade.pnl !== null)
                                                                 ? (trade.pnl >= 0 ? 'success.main' : 'error.main')
                                                                 : 'text.primary'}
                                                         >
-                                                            {(trade.pnl && trade.pnl !== 0)
+                                                            {(trade.pnl !== undefined && trade.pnl !== null)
                                                                 ? formatCurrency(trade.pnl)
                                                                 : formatCurrency((trade.entryPrice * trade.quantity) + (trade.fees || 0))}
                                                         </Typography>
