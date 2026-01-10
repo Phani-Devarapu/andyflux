@@ -2,11 +2,12 @@
  * Parse option symbol and return formatted display string
  * Format: SYMBOL YYMMDDC/P######
  * Example: "SOFI  251107C00042000" -> "SOFI $42 CALL"
+ * Also handles display format: "SOFI $42 CALL" -> underlying: "SOFI"
  */
-export function parseOptionSymbol(symbol: string): { 
-    display: string; 
-    underlying: string; 
-    strike?: number; 
+export function parseOptionSymbol(symbol: string): {
+    display: string;
+    underlying: string;
+    strike?: number;
     optionType?: 'CALL' | 'PUT';
     expiration?: string;
 } {
@@ -15,13 +16,28 @@ export function parseOptionSymbol(symbol: string): {
     }
 
     const trimmed = symbol.trim();
-    
+
+    // Check if it's already in display format (e.g., "SOFI $32 CALL")
+    // Pattern: TICKER $STRIKE CALL/PUT
+    const displayPattern = /^([A-Z]+)\s+\$(\d+(?:\.\d+)?)\s+(CALL|PUT)$/i;
+    const displayMatch = trimmed.match(displayPattern);
+
+    if (displayMatch) {
+        const [, underlying, strikeStr, optionType] = displayMatch;
+        return {
+            display: trimmed,
+            underlying: underlying,
+            strike: parseFloat(strikeStr),
+            optionType: optionType.toUpperCase() as 'CALL' | 'PUT'
+        };
+    }
+
     // Check if it looks like an option symbol (has date pattern and C/P)
     // Pattern: SYMBOL YYMMDDC/P###### (with variable spacing)
     // Example: "SOFI  260116C00040000" or "RGTI 251107C00042000"
     const optionPattern = /^([A-Z]+)\s+(\d{6})([CP])(\d+)$/;
     const match = trimmed.match(optionPattern);
-    
+
     // Also try pattern without space: SYMBOLYYMMDDC/P######
     if (!match) {
         const noSpacePattern = /^([A-Z]+)(\d{6})([CP])(\d+)$/;
@@ -31,7 +47,7 @@ export function parseOptionSymbol(symbol: string): {
             return parseOptionDetails(underlying, dateStr, callPut, strikeStr);
         }
     }
-    
+
     if (!match) {
         // Not an option symbol, return as-is
         return { display: symbol, underlying: symbol };
@@ -41,7 +57,7 @@ export function parseOptionSymbol(symbol: string): {
         const [, underlying, dateStr, callPut, strikeStr] = match;
         return parseOptionDetails(underlying, dateStr, callPut, strikeStr);
     }
-    
+
     // Not an option symbol, return as-is
     return { display: symbol, underlying: symbol };
 }
@@ -54,7 +70,7 @@ function parseOptionDetails(underlying: string, dateStr: string, callPut: string
     // "00042000" = $42.00 (8 digits, divide by 1000)
     let strike: number;
     const strikeNum = parseInt(strikeStr, 10);
-    
+
     // Common Wealthsimple format: 8 digits = strike * 1000
     // So 00040000 = 40.00, 00110000 = 110.00, 00200000 = 200.00
     if (strikeStr.length === 8) {
@@ -72,7 +88,7 @@ function parseOptionDetails(underlying: string, dateStr: string, callPut: string
             strike = strikeNum;
         }
     }
-    
+
     // Round to 2 decimal places
     strike = Math.round(strike * 100) / 100;
 

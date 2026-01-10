@@ -50,13 +50,16 @@ export const TickerAnalytics = () => {
             // For options, extract the underlying symbol
             if (t.type === 'Option') {
                 const parsed = parseOptionSymbol(t.symbol);
+                console.log('Option symbol:', t.symbol, '→ Underlying:', parsed.underlying);
                 tickers.add(parsed.underlying);
             } else {
                 tickers.add(t.symbol);
             }
         });
 
-        return Array.from(tickers).sort();
+        const result = Array.from(tickers).sort();
+        console.log('All unique tickers:', result);
+        return result;
     }, [trades]);
 
     // Filter trades by Ticker (underlying) AND Time Range
