@@ -23,6 +23,7 @@ import {
 import { Search } from '@mui/icons-material';
 
 import { useMarketData } from '../context/MarketDataContext';
+import { parseOptionSymbol } from '../utils/optionSymbolParser';
 
 type TimeRange = '1W' | '1M' | 'YTD' | 'ALL';
 
@@ -38,19 +39,44 @@ export const TickerAnalytics = () => {
     // Switch to Cloud Data
     const { trades } = useAllTrades();
 
+    // Extract unique underlying tickers (including from options)
     const allTickers = useMemo(() => {
         if (!trades) return [];
-        const tickers = new Set(trades.map(t => t.symbol).filter(Boolean));
+        const tickers = new Set<string>();
+
+        trades.forEach(t => {
+            if (!t.symbol) return;
+
+            // For options, extract the underlying symbol
+            if (t.type === 'Option') {
+                const parsed = parseOptionSymbol(t.symbol);
+                tickers.add(parsed.underlying);
+            } else {
+                tickers.add(t.symbol);
+            }
+        });
+
         return Array.from(tickers).sort();
     }, [trades]);
 
-    // Filter trades by Ticker AND Time Range
+    // Filter trades by Ticker (underlying) AND Time Range
     const filteredTrades = useMemo(() => {
         if (!trades || !selectedTicker) return [];
 
         const now = new Date();
         return trades
-            .filter(t => t.symbol === selectedTicker)
+            .filter(t => {
+                if (!t.symbol) return false;
+
+                // For options, compare underlying symbol
+                if (t.type === 'Option') {
+                    const parsed = parseOptionSymbol(t.symbol);
+                    return parsed.underlying === selectedTicker;
+                }
+
+                // For stocks/ETFs, compare directly
+                return t.symbol === selectedTicker;
+            })
             .filter(t => {
                 const date = new Date(t.date);
                 switch (timeRange) {
@@ -180,6 +206,7 @@ export const TickerAnalytics = () => {
                                 <TableHead>
                                     <TableRow>
                                         <TableCell>Date</TableCell>
+                                        <TableCell>Symbol</TableCell>
                                         <TableCell>Side</TableCell>
                                         <TableCell>Setup</TableCell>
                                         <TableCell align="right">Quantity</TableCell>
@@ -189,32 +216,44 @@ export const TickerAnalytics = () => {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {filteredTrades.map((trade) => (
-                                        <TableRow key={trade.id} hover>
-                                            <TableCell>{new Date(trade.date).toLocaleDateString()}</TableCell>
-                                            <TableCell>
-                                                <Chip
-                                                    label={trade.side}
-                                                    color={trade.side === 'Buy' ? 'success' : 'error'}
-                                                    size="small"
-                                                    variant="outlined"
-                                                    sx={{ fontWeight: 'bold' }}
-                                                />
-                                            </TableCell>
-                                            <TableCell>{trade.strategy || '-'}</TableCell>
-                                            <TableCell align="right">{trade.quantity}</TableCell>
-                                            <TableCell align="right">{trade.entryPrice}</TableCell>
-                                            <TableCell align="right">{trade.exitPrice}</TableCell>
-                                            <TableCell align="right">
-                                                <Typography
-                                                    fontWeight="bold"
-                                                    color={(trade.pnl || 0) >= 0 ? 'success.main' : 'error.main'}
-                                                >
-                                                    {formatCurrency(trade.pnl || 0)}
-                                                </Typography>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
+                                    {filteredTrades.map((trade) => {
+                                        // Format symbol for display (shows strike for options)
+                                        const displaySymbol = trade.type === 'Option'
+                                            ? parseOptionSymbol(trade.symbol).display
+                                            : trade.symbol;
+
+                                        return (
+                                            <TableRow key={trade.id} hover>
+                                                <TableCell>{new Date(trade.date).toLocaleDateString()}</TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight="medium">
+                                                        {displaySymbol}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip
+                                                        label={trade.side}
+                                                        color={trade.side === 'Buy' ? 'success' : 'error'}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        sx={{ fontWeight: 'bold' }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>{trade.strategy || '-'}</TableCell>
+                                                <TableCell align="right">{trade.quantity}</TableCell>
+                                                <TableCell align="right">{trade.entryPrice}</TableCell>
+                                                <TableCell align="right">{trade.exitPrice}</TableCell>
+                                                <TableCell align="right">
+                                                    <Typography
+                                                        fontWeight="bold"
+                                                        color={(trade.pnl || 0) >= 0 ? 'success.main' : 'error.main'}
+                                                    >
+                                                        {formatCurrency(trade.pnl || 0)}
+                                                    </Typography>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                     {filteredTrades.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
