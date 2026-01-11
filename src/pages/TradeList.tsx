@@ -201,6 +201,12 @@ export function TradeList() {
             width: 150,
             type: 'number',
             valueGetter: (_: unknown, row: Trade) => {
+                // If annualizedReturn is already saved, use it
+                if (row.annualizedReturn !== undefined && row.annualizedReturn !== null) {
+                    return row.annualizedReturn;
+                }
+
+                // Otherwise, calculate on-the-fly for existing trades
                 // Only calculate for closed trades with P/L
                 if (row.status !== 'Closed' || !row.pnl || !row.exitDate || !row.date) return null;
 
