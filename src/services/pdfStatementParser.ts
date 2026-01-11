@@ -1,12 +1,5 @@
-import * as pdfjsLib from 'pdfjs-dist';
 import { extractTransactions, detectStatementYear, type ExtractedTransaction } from '../utils/transactionExtractor';
 import type { Expense } from '../types/expenseTypes';
-
-// Set worker source - use local worker for better reliability
-pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-    'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
-).toString();
 
 /**
  * Parse PDF statement and extract transactions
@@ -18,40 +11,69 @@ export async function parsePDFStatement(
     try {
         console.log('Starting PDF parse for file:', file.name, 'Size:', file.size);
 
-        // Read file as ArrayBuffer
-        const arrayBuffer = await file.arrayBuffer();
-        console.log('File read successfully, buffer size:', arrayBuffer.byteLength);
+        // Use FileReader to read the file as data URL
+        const text = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
 
-        // Load PDF document
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-        const pdf = await loadingTask.promise;
-        console.log('PDF loaded successfully, pages:', pdf.numPages);
+            reader.onload = async (e) => {
+                try {
+                    const arrayBuffer = e.target?.result as ArrayBuffer;
 
-        // Extract text from all pages
-        let fullText = '';
-        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-            const page = await pdf.getPage(pageNum);
-            const textContent = await page.getTextContent();
-            const pageText = textContent.items
-                .map((item: any) => item.str)
-                .join(' ');
-            fullText += pageText + '\n';
-            console.log(`Page ${pageNum} extracted, length:`, pageText.length);
-        }
+                    // Import pdf.js dynamically
+                    const pdfjsLib = await import('pdfjs-dist');
 
-        console.log('Full text extracted, total length:', fullText.length);
-        console.log('First 500 chars:', fullText.substring(0, 500));
+                    // Set worker
+                    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+                        'pdfjs-dist/build/pdf.worker.min.mjs',
+                        import.meta.url
+                    ).toString();
+
+                    // Load PDF
+                    const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                    const pdf = await loadingTask.promise;
+
+                    console.log('PDF loaded, pages:', pdf.numPages);
+
+                    // Extract text from all pages
+                    let fullText = '';
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+
+                        // Join text items with spaces, preserving line breaks
+                        const pageText = textContent.items
+                            .map((item: any) => {
+                                // Add newline if this item is on a new line
+                                return item.str;
+                            })
+                            .join(' ');
+
+                        fullText += pageText + '\n';
+                    }
+
+                    console.log('Text extracted, length:', fullText.length);
+                    console.log('Sample:', fullText.substring(0, 500));
+
+                    resolve(fullText);
+                } catch (err) {
+                    reject(err);
+                }
+            };
+
+            reader.onerror = () => reject(new Error('Failed to read file'));
+            reader.readAsArrayBuffer(file);
+        });
 
         // Detect statement year
-        const year = detectStatementYear(fullText);
+        const year = detectStatementYear(text);
         console.log('Detected year:', year);
 
         // Extract transactions with learning from past expenses
-        const transactions = extractTransactions(fullText, year, pastExpenses);
+        const transactions = extractTransactions(text, year, pastExpenses);
         console.log('Extracted transactions:', transactions.length);
 
         if (transactions.length === 0) {
-            console.warn('No transactions found. Text sample:', fullText.substring(0, 1000));
+            console.warn('No transactions found. Full text:', text);
         }
 
         return transactions;
