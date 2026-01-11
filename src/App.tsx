@@ -15,6 +15,7 @@ import { FxRateProvider } from './context/FxRateContext';
 import { getTheme } from './theme';
 
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { AccountRouteGuard } from './components/auth/AccountRouteGuard';
 import { WelcomePage } from './pages/WelcomePage';
 import { ExpenseManagerPage } from './pages/ExpenseManagerPage';
 import { AccountManagement } from './pages/AccountManagement';
@@ -35,13 +36,43 @@ function AppContent() {
           </ProtectedRoute>
         }>
           <Route path="/" element={<Dashboard />} />
-          <Route path="/trades" element={<TradeList />} />
-          <Route path="/add" element={<TradeForm />} />
-          <Route path="/edit/:id" element={<TradeForm />} />
-          <Route path="/analytics" element={<Analytics />} />
+
+          {/* Trading routes - blocked for PERSONAL account */}
+          <Route path="/trades" element={
+            <AccountRouteGuard allowedAccounts={['TFSA', 'FHSA', 'NON_REGISTERED']}>
+              <TradeList />
+            </AccountRouteGuard>
+          } />
+          <Route path="/add" element={
+            <AccountRouteGuard allowedAccounts={['TFSA', 'FHSA', 'NON_REGISTERED']}>
+              <TradeForm />
+            </AccountRouteGuard>
+          } />
+          <Route path="/edit/:id" element={
+            <AccountRouteGuard allowedAccounts={['TFSA', 'FHSA', 'NON_REGISTERED']}>
+              <TradeForm />
+            </AccountRouteGuard>
+          } />
+          <Route path="/analytics" element={
+            <AccountRouteGuard allowedAccounts={['TFSA', 'FHSA', 'NON_REGISTERED']}>
+              <Analytics />
+            </AccountRouteGuard>
+          } />
+          <Route path="/reports" element={
+            <AccountRouteGuard allowedAccounts={['TFSA', 'FHSA', 'NON_REGISTERED']}>
+              <Reports />
+            </AccountRouteGuard>
+          } />
+
+          {/* Expense route - only for PERSONAL account */}
+          <Route path="/expenses" element={
+            <AccountRouteGuard allowedAccounts={['PERSONAL']}>
+              <ExpenseManagerPage />
+            </AccountRouteGuard>
+          } />
+
+          {/* Calendar and Account Management - available for all accounts */}
           <Route path="/calendar" element={<Calendar />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/expenses" element={<ExpenseManagerPage />} />
           <Route path="/account-management" element={<AccountManagement />} />
         </Route>
 
