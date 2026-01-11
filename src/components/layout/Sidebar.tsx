@@ -144,10 +144,21 @@ export function Sidebar({ onClose }: SidebarProps) {
                                         fontFamily: 'inherit'
                                     }}
                                 >
-                                    <option value="TFSA">🍁 TFSA</option>
-                                    <option value="FHSA">🏠 FHSA</option>
-                                    <option value="NON_REGISTERED">💵 Non-Registered</option>
-                                    <option value="PERSONAL">💳 Personal</option>
+                                    {(() => {
+                                        const { availableAccounts } = useAccount();
+                                        const accountLabels: Record<AccountType, string> = {
+                                            'TFSA': '🍁 TFSA',
+                                            'FHSA': '🏠 FHSA',
+                                            'NON_REGISTERED': '💵 Non-Registered',
+                                            'PERSONAL': '💳 Personal'
+                                        };
+
+                                        return availableAccounts.map(account => (
+                                            <option key={account} value={account}>
+                                                {accountLabels[account]}
+                                            </option>
+                                        ));
+                                    })()}
                                 </select>
                             </Box>
                         </Box>
@@ -254,11 +265,11 @@ export function Sidebar({ onClose }: SidebarProps) {
                                     variant="outlined"
                                     color="inherit"
                                     size="small"
-                                    onClick={() => setDataOpen(true)}
+                                    onClick={() => handleNavigation('/account-management')}
                                     fullWidth
                                     sx={{ borderColor: 'divider', color: 'text.secondary' }}
                                 >
-                                    Manage Data
+                                    Account Management
                                 </Button>
                                 <Button
                                     variant="outlined"

@@ -17,6 +17,7 @@ import { getTheme } from './theme';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { WelcomePage } from './pages/WelcomePage';
 import { ExpenseManagerPage } from './pages/ExpenseManagerPage';
+import { AccountManagement } from './pages/AccountManagement';
 
 function AppContent() {
   const { mode } = useColorMode();
@@ -41,6 +42,7 @@ function AppContent() {
           <Route path="/calendar" element={<Calendar />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/expenses" element={<ExpenseManagerPage />} />
+          <Route path="/account-management" element={<AccountManagement />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
