@@ -9,32 +9,36 @@ import { DEFAULT_EXPENSE_CATEGORIES } from '../../types/expenseTypes';
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface ExpenseStatsProps {
-    expenses: Expense[];
+    expenses: Expense[];  // Filtered expenses for the selected month
+    allExpenses: Expense[];  // All expenses (for YTD calculation)
 }
 
-export function ExpenseStats({ expenses }: ExpenseStatsProps) {
+export function ExpenseStats({ expenses, allExpenses }: ExpenseStatsProps) {
     const theme = useTheme();
 
     // 1. Calculate Stats
     const stats = useMemo(() => {
-        // Note: expenses prop is already filtered by month/year in ExpenseManagerPage
-        // So we just sum all expenses passed to this component
+        // Total This Month: sum of filtered expenses
         const totalThisMonth = expenses.reduce((sum, e) => sum + e.amount, 0);
 
         // Recurring "Burn Rate" (Projected Monthly Fixed Cost)
-        // Monthly + (Yearly / 12)
         const monthlyRecurring = expenses.filter(e => e.isRecurring && e.frequency === 'monthly')
             .reduce((sum, e) => sum + e.amount, 0);
         const yearlyRecurring = expenses.filter(e => e.isRecurring && e.frequency === 'yearly')
             .reduce((sum, e) => sum + e.amount / 12, 0);
-
         const monthlyBurn = monthlyRecurring + yearlyRecurring;
 
-        // YTD: sum all expenses (parent already filters by year if needed)
-        const totalYTD = expenses.reduce((sum, e) => sum + e.amount, 0);
+        // YTD: Calculate from ALL expenses for the current year
+        const currentYear = new Date().getFullYear();
+        const totalYTD = allExpenses
+            .filter(e => {
+                const expenseDate = new Date(e.date);
+                return expenseDate.getFullYear() === currentYear;
+            })
+            .reduce((sum, e) => sum + e.amount, 0);
 
         return { totalThisMonth, monthlyBurn, totalYTD };
-    }, [expenses]);
+    }, [expenses, allExpenses]);
 
     // 2. Prepare Chart Data (Category Breakdown)
     const chartData = useMemo(() => {

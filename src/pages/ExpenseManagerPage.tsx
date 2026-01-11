@@ -161,7 +161,7 @@ export function ExpenseManagerPage() {
             </Box>
 
             {/* Stats & Analytics */}
-            <ExpenseStats expenses={expenses} />
+            <ExpenseStats expenses={expenses} allExpenses={allExpenses.filter(e => e.accountId === selectedAccount)} />
 
             {/* Subscriptions */}
             <SubscriptionList expenses={expenses} />
