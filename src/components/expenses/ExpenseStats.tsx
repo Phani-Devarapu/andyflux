@@ -17,16 +17,9 @@ export function ExpenseStats({ expenses }: ExpenseStatsProps) {
 
     // 1. Calculate Stats
     const stats = useMemo(() => {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-
-        const thisMonthExpenses = expenses.filter(e =>
-            e.date.getMonth() === currentMonth &&
-            e.date.getFullYear() === currentYear
-        );
-
-        const totalThisMonth = thisMonthExpenses.reduce((sum, e) => sum + e.amount, 0);
+        // Note: expenses prop is already filtered by month/year in ExpenseManagerPage
+        // So we just sum all expenses passed to this component
+        const totalThisMonth = expenses.reduce((sum, e) => sum + e.amount, 0);
 
         // Recurring "Burn Rate" (Projected Monthly Fixed Cost)
         // Monthly + (Yearly / 12)
@@ -37,8 +30,8 @@ export function ExpenseStats({ expenses }: ExpenseStatsProps) {
 
         const monthlyBurn = monthlyRecurring + yearlyRecurring;
 
-        const totalYTD = expenses.filter(e => e.date.getFullYear() === currentYear)
-            .reduce((sum, e) => sum + e.amount, 0);
+        // YTD: sum all expenses (parent already filters by year if needed)
+        const totalYTD = expenses.reduce((sum, e) => sum + e.amount, 0);
 
         return { totalThisMonth, monthlyBurn, totalYTD };
     }, [expenses]);
@@ -50,12 +43,12 @@ export function ExpenseStats({ expenses }: ExpenseStatsProps) {
             categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + e.amount);
         });
 
-        const labels = Array.from(categoryMap.keys()).map(id => {
-            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === id)?.name || id;
-        });
+        // Category names are stored in expenses, not IDs
+        const labels = Array.from(categoryMap.keys());
         const data = Array.from(categoryMap.values());
-        const bgColors = Array.from(categoryMap.keys()).map(id => {
-            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === id)?.color || '#9ca3af';
+        const bgColors = Array.from(categoryMap.keys()).map(categoryName => {
+            // Match by name, not ID
+            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.name === categoryName)?.color || '#9ca3af';
         });
 
         return {
