@@ -30,7 +30,7 @@ import { formatCurrency } from '../utils/calculations';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
 import type { BrokerName } from '../utils/brokerAdapters';
-import { formatSymbolForDisplay } from '../utils/optionSymbolParser';
+import { formatSymbolForDisplay, parseOptionSymbol } from '../utils/optionSymbolParser';
 import { TradeDetailsDialog } from '../components/TradeDetailsDialog';
 import type { Trade } from '../types/trade';
 import { useMarketData } from '../context/MarketDataContext';
@@ -213,8 +213,23 @@ export function TradeList() {
                 // Avoid division by zero
                 if (daysHeld === 0) return null;
 
-                // Calculate capital invested (entry price × quantity + fees)
-                const capitalInvested = (row.entryPrice * row.quantity) + (row.fees || 0);
+                // Calculate capital invested based on trade type
+                let capitalInvested = 0;
+
+                if (row.type === 'Option' && row.side === 'Sell') {
+                    // For sold options (CSP, CC): use strike price × quantity × 100 (conservative)
+                    const parsed = parseOptionSymbol(row.symbol);
+                    if (parsed.strike) {
+                        capitalInvested = parsed.strike * row.quantity * 100;
+                    } else {
+                        // Fallback if we can't parse strike
+                        capitalInvested = (row.entryPrice * row.quantity * 100) + (row.fees || 0);
+                    }
+                } else {
+                    // For bought options or stocks: use premium/price paid
+                    const multiplier = row.type === 'Option' ? 100 : 1;
+                    capitalInvested = (row.entryPrice * row.quantity * multiplier) + (row.fees || 0);
+                }
 
                 // Avoid division by zero
                 if (capitalInvested === 0) return null;
