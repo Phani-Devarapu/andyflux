@@ -26,8 +26,10 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
             try {
                 const trade = tradeDoc.data() as Trade;
 
-                // Skip if already has annualizedReturn
-                if (trade.annualizedReturn !== undefined && trade.annualizedReturn !== null) {
+                // Skip if already has VALID annualizedReturn (not NaN, null, or undefined)
+                if (trade.annualizedReturn !== undefined &&
+                    trade.annualizedReturn !== null &&
+                    !isNaN(trade.annualizedReturn)) {
                     skipped++;
                     continue;
                 }
