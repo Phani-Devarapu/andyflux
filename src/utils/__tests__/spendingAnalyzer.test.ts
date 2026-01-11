@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeSpending } from '../spendingAnalyzer';
 import type { Expense } from '../../types/expenseTypes';
-import { subMonths } from 'date-fns';
 
 describe('Spending Analyzer', () => {
     const createExpense = (amount: number, category: string, daysAgo: number): Expense => ({
