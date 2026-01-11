@@ -41,9 +41,10 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
                 }
 
                 // Calculate annualized return
-                const exit = new Date(trade.exitDate);
-                const entry = new Date(trade.date);
-                const daysHeld = Math.max(1, Math.ceil(Math.abs(exit.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24)));
+                // Handle Firestore Timestamps - they have a .toDate() method
+                const exitDate = (trade.exitDate as any)?.toDate ? (trade.exitDate as any).toDate() : new Date(trade.exitDate!);
+                const entryDate = (trade.date as any)?.toDate ? (trade.date as any).toDate() : new Date(trade.date);
+                const daysHeld = Math.max(1, Math.ceil(Math.abs(exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
 
                 // Calculate capital deployed
                 let capital = 0;
