@@ -51,7 +51,6 @@ export function TradeList() {
     const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
-    const [backfilling, setBackfilling] = useState(false);
 
     // Use Paginated Hook
     const { trades, loading: isLoading, error, deleteTrade, loadMore, hasMore } = usePaginatedTrades();
@@ -459,26 +458,6 @@ export function TradeList() {
                         title="Export currently loaded trades"
                     >
                         Export CSV
-                    </Button>
-
-                    <Button
-                        variant="outlined"
-                        onClick={handleDebugTrade}
-                        color="info"
-                        size="small"
-                        title="Debug first closed trade calculation"
-                    >
-                        Debug
-                    </Button>
-
-                    <Button
-                        variant="outlined"
-                        onClick={handleBackfillAnnualizedReturn}
-                        disabled={backfilling}
-                        color="warning"
-                        title="Calculate annualized returns for all existing closed trades"
-                    >
-                        {backfilling ? 'Backfilling...' : 'Backfill Returns'}
                     </Button>
 
                     <Button
