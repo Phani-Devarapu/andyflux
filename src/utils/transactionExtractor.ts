@@ -146,14 +146,57 @@ export function extractTransactions(
 
 /**
  * Detect statement year from text
+ * Looks for statement date patterns and falls back to most recent transaction year
  */
 export function detectStatementYear(text: string): number {
-    // Look for year in statement date
-    const yearMatch = text.match(/20\d{2}/);
-    if (yearMatch) {
-        return parseInt(yearMatch[0], 10);
+    console.log('Detecting statement year...');
+
+    // Pattern 1: Look for "STATEMENT DATE" or "DATE DU RELEVÉ" followed by date
+    // Example: "STATEMENT DATE 2024-11-30" or "DATE DU RELEVÉ 30 11 2024"
+    const statementDatePatterns = [
+        /STATEMENT\s+DATE.*?(\d{4})/i,
+        /DATE\s+DU\s+RELEV[ÉE].*?(\d{4})/i,
+        /(\d{4})-(\d{2})-(\d{2})/,  // ISO date format
+    ];
+
+    for (const pattern of statementDatePatterns) {
+        const match = text.match(pattern);
+        if (match) {
+            const year = parseInt(match[1], 10);
+            if (year >= 2020 && year <= 2030) {
+                console.log('Found statement year from pattern:', year);
+                return year;
+            }
+        }
+    }
+
+    // Pattern 2: Find all 4-digit years and use the most recent one that makes sense
+    const allYears = text.match(/\b20\d{2}\b/g);
+    if (allYears && allYears.length > 0) {
+        const years = allYears
+            .map(y => parseInt(y, 10))
+            .filter(y => y >= 2020 && y <= 2030);
+
+        if (years.length > 0) {
+            // Use the most common year (likely the statement year)
+            const yearCounts = years.reduce((acc, year) => {
+                acc[year] = (acc[year] || 0) + 1;
+                return acc;
+            }, {} as Record<number, number>);
+
+            const mostCommonYear = parseInt(
+                Object.entries(yearCounts)
+                    .sort(([, a], [, b]) => b - a)[0][0],
+                10
+            );
+
+            console.log('Most common year in statement:', mostCommonYear);
+            return mostCommonYear;
+        }
     }
 
     // Default to current year
-    return new Date().getFullYear();
+    const currentYear = new Date().getFullYear();
+    console.log('No year found, defaulting to current year:', currentYear);
+    return currentYear;
 }
