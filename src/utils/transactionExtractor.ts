@@ -61,15 +61,11 @@ export function extractNBCTransactions(
             continue;
         }
 
-        // Infer year
-        let year = statementYear;
-        const now = new Date();
-        if (monthNum === 12 && now.getMonth() === 0) {
-            year = statementYear - 1;
-        }
+        // Use the statement year directly
+        // The statement date tells us which year these transactions belong to
+        const date = new Date(statementYear, monthNum - 1, dayNum);
 
-        const date = new Date(year, monthNum - 1, dayNum);
-
+        console.log(`  → Date: ${date.toISOString().split('T')[0]} (using statement year ${statementYear})`);
         // Clean description
         // Remove trailing province codes (BC, ON, QC, etc.)
         const provinceMatch = description.match(/\s+([A-Z]{2})\s*$/);
@@ -154,12 +150,12 @@ export function detectStatementYear(text: string): number {
     console.log('Detecting statement year...');
 
     // Pattern 1: Look for "STATEMENT DATE" or "DATE DU RELEVÉ" followed by date
-    // NBC format: "DATE DU RELEVÉ 25 12 17" (DD MM YY)
-    // Also try: "STATEMENT DATE 2024-11-30" or other formats
+    // NBC format: "DATE DU RELEVÉ" with "A.-Y. MO. J.-D." headers meaning Year Month Day
+    // Example: "25 12 17" = Year 25 (2025), Month 12 (Dec), Day 17
     const statementDatePatterns = [
-        /DATE\s+DU\s+RELEV[ÉE].*?(\d{1,2})\s+(\d{1,2})\s+(\d{2})(?!\d)/i,  // DD MM YY format
+        /DATE\s+DU\s+RELEV[ÉE].*?(\d{2})\s+(\d{1,2})\s+(\d{1,2})(?!\d)/i,  // YY MM DD format
         /STATEMENT\s+DATE.*?(\d{4})-(\d{2})-(\d{2})/i,  // YYYY-MM-DD
-        /STATEMENT\s+DATE.*?(\d{1,2})\s+(\d{1,2})\s+(\d{2,4})/i,  // DD MM YY or DD MM YYYY
+        /STATEMENT\s+DATE.*?(\d{2})\s+(\d{1,2})\s+(\d{1,2})/i,  // YY MM DD
     ];
 
     for (const pattern of statementDatePatterns) {
@@ -167,19 +163,18 @@ export function detectStatementYear(text: string): number {
         if (match) {
             let year: number;
 
-            // Check if it's DD MM YY format (match has 4 groups)
-            if (match.length === 4 && match[3].length === 2) {
-                // Two-digit year - convert to 4 digits
-                const yy = parseInt(match[3], 10);
+            // Check if first capture group is a 2-digit year
+            if (match[1].length === 2) {
+                // YY MM DD format - first group is year
+                const yy = parseInt(match[1], 10);
                 year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
-                console.log(`Found statement date: ${match[1]}/${match[2]}/${match[3]} -> year ${year}`);
+                console.log(`Found statement date: YY=${match[1]} MM=${match[2]} DD=${match[3]} -> year ${year}`);
             } else if (match[1].length === 4) {
-                // Four-digit year in first capture group
+                // Four-digit year in first capture group (YYYY-MM-DD)
                 year = parseInt(match[1], 10);
-                console.log('Found statement year from YYYY format:', year);
+                console.log('Found statement year from YYYY-MM-DD format:', year);
             } else {
-                // Try to find year in any capture group
-                year = parseInt(match.find(g => g && g.length === 4) || match[1], 10);
+                continue;
             }
 
             if (year >= 2000 && year <= 2030) {
