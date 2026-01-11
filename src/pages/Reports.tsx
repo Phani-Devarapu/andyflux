@@ -5,6 +5,7 @@ import { Activity, BarChart3, PieChart } from 'lucide-react';
 import { ActivityReport } from './ActivityReport';
 import { TickerAnalytics } from './TickerAnalytics';
 import { StrategyAnalytics } from './StrategyAnalytics';
+import { useAccount } from '../context/AccountContext';
 
 interface TabPanelProps {
     children?: React.ReactNode;
@@ -31,10 +32,17 @@ function TabPanel(props: TabPanelProps) {
 export function Reports() {
     const theme = useTheme();
     const [searchParams, setSearchParams] = useSearchParams();
+    const { selectedAccount } = useAccount();
+
+    // For PERSONAL account, only show Activity Report
+    const isPersonalAccount = selectedAccount === 'PERSONAL';
 
     // Get initial tab from URL query parameter
     const getInitialTab = () => {
         const tabParam = searchParams.get('tab');
+        // Force activity tab for PERSONAL account
+        if (isPersonalAccount) return 0;
+
         switch (tabParam) {
             case 'ticker':
                 return 1;
@@ -115,20 +123,24 @@ export function Reports() {
                         id="reports-tab-0"
                         aria-controls="reports-tabpanel-0"
                     />
-                    <Tab
-                        icon={<BarChart3 size={20} />}
-                        iconPosition="start"
-                        label="Ticker Analytics"
-                        id="reports-tab-1"
-                        aria-controls="reports-tabpanel-1"
-                    />
-                    <Tab
-                        icon={<PieChart size={20} />}
-                        iconPosition="start"
-                        label="Strategy Analytics"
-                        id="reports-tab-2"
-                        aria-controls="reports-tabpanel-2"
-                    />
+                    {!isPersonalAccount && (
+                        <Tab
+                            icon={<BarChart3 size={20} />}
+                            iconPosition="start"
+                            label="Ticker Analytics"
+                            id="reports-tab-1"
+                            aria-controls="reports-tabpanel-1"
+                        />
+                    )}
+                    {!isPersonalAccount && (
+                        <Tab
+                            icon={<PieChart size={20} />}
+                            iconPosition="start"
+                            label="Strategy Analytics"
+                            id="reports-tab-2"
+                            aria-controls="reports-tabpanel-2"
+                        />
+                    )}
                 </Tabs>
             </Paper>
 
