@@ -258,6 +258,7 @@ export const TickerAnalytics = () => {
                                         <TableCell align="right">Entry</TableCell>
                                         <TableCell align="right">Exit</TableCell>
                                         <TableCell align="right">P/L</TableCell>
+                                        <TableCell align="right">Annualized Return</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -266,6 +267,30 @@ export const TickerAnalytics = () => {
                                         const displaySymbol = trade.type === 'Option'
                                             ? parseOptionSymbol(trade.symbol).display
                                             : trade.symbol;
+
+                                        // Calculate annualized return for closed trades
+                                        let annualizedReturn: number | null = null;
+                                        if (trade.status === 'Closed' && trade.pnl && trade.exitDate && trade.date) {
+                                            const exit = new Date(trade.exitDate);
+                                            const entry = new Date(trade.date);
+                                            const daysHeld = Math.ceil(Math.abs(exit.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24));
+
+                                            if (daysHeld > 0) {
+                                                let capital = 0;
+                                                if (trade.type === 'Option' && trade.side === 'Sell') {
+                                                    const parsed = parseOptionSymbol(trade.symbol);
+                                                    capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
+                                                } else {
+                                                    const multiplier = trade.type === 'Option' ? 100 : 1;
+                                                    capital = (trade.entryPrice * trade.quantity * multiplier) + (trade.fees || 0);
+                                                }
+
+                                                if (capital > 0) {
+                                                    const returnPercent = (trade.pnl / capital) * 100;
+                                                    annualizedReturn = returnPercent * (365 / daysHeld);
+                                                }
+                                            }
+                                        }
 
                                         return (
                                             <TableRow key={trade.id} hover>
@@ -296,12 +321,25 @@ export const TickerAnalytics = () => {
                                                         {formatCurrency(trade.pnl || 0)}
                                                     </Typography>
                                                 </TableCell>
+                                                <TableCell align="right">
+                                                    {annualizedReturn !== null ? (
+                                                        <Typography
+                                                            variant="body2"
+                                                            fontWeight="bold"
+                                                            color={annualizedReturn >= 0 ? 'success.main' : 'error.main'}
+                                                        >
+                                                            {annualizedReturn > 0 ? '+' : ''}{annualizedReturn.toFixed(1)}%
+                                                        </Typography>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">-</Typography>
+                                                    )}
+                                                </TableCell>
                                             </TableRow>
                                         );
                                     })}
                                     {filteredTrades.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                                            <TableCell colSpan={9} align="center" sx={{ py: 8, color: 'text.secondary' }}>
                                                 No trades found for {selectedTicker} in this range.
                                             </TableCell>
                                         </TableRow>
