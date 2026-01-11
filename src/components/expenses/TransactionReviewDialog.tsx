@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Button, Dialog, DialogTitle, DialogContent, DialogActions, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, TextField, MenuItem, IconButton, Typography, Alert, Chip } from '@mui/material';
 import { Edit, Trash2, Check, X } from 'lucide-react';
 import type { ExtractedTransaction } from '../../utils/transactionExtractor';
@@ -14,10 +14,18 @@ interface TransactionReviewDialogProps {
 }
 
 export function TransactionReviewDialog({ open, transactions, onClose, onImport }: TransactionReviewDialogProps) {
-    const [selected, setSelected] = useState<Set<number>>(new Set(transactions.map((_, i) => i)));
-    const [editedTransactions, setEditedTransactions] = useState<ExtractedTransaction[]>(transactions);
+    const [selected, setSelected] = useState<Set<number>>(new Set());
+    const [editedTransactions, setEditedTransactions] = useState<ExtractedTransaction[]>([]);
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const [importing, setImporting] = useState(false);
+
+    // Sync state when transactions prop changes
+    useEffect(() => {
+        console.log('TransactionReviewDialog: Received transactions:', transactions.length);
+        setEditedTransactions(transactions);
+        setSelected(new Set(transactions.map((_, i) => i)));
+        setEditingIndex(null);
+    }, [transactions]);
 
     const handleSelectAll = () => {
         if (selected.size === transactions.length) {
