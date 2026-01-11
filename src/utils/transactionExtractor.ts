@@ -21,14 +21,23 @@ export function extractNBCTransactions(
 ): ExtractedTransaction[] {
     const transactions: ExtractedTransaction[] = [];
 
-    // NBC transaction pattern:
-    // 11 18 | U852780076 | 11 19 | LYFT *2 RIDES 11-17 VANCOUVER BC | 18.00
-    // Groups: month1 day1 | reference | month2 day2 | description | amount
-    const nbcPattern = /(\d{2})\s+(\d{2})\s+\|\s+[A-Z0-9]+\s+\|\s+(\d{2})\s+(\d{2})\s+\|\s+(.+?)\s+\|\s+([\d,]+\.\d{2})/g;
+    // NBC transaction pattern - more flexible to handle PDF text extraction
+    // Looking for patterns like:
+    // 11 18 U852780076 11 19 LYFT *2 RIDES 11-17 VANCOUVER BC 18.00
+    // or with pipes: 11 18 | U852780076 | 11 19 | LYFT *2 RIDES 11-17 VANCOUVER BC | 18.00
 
-    let match;
-    while ((match = nbcPattern.exec(text)) !== null) {
-        const [fullMatch, , , month, day, description, amountStr] = match;
+    // Split text into lines and process each line
+    const lines = text.split('\n');
+
+    for (const line of lines) {
+        // Look for lines with transaction pattern:
+        // Month Day (optional pipe) Reference (optional pipe) Month Day (optional pipe) Description Amount
+        const pattern = /(\d{1,2})\s+(\d{1,2})\s+\|?\s*([A-Z0-9]{8,})\s+\|?\s*(\d{1,2})\s+(\d{1,2})\s+\|?\s*(.+?)\s+([\d,]+\.\d{2})\s*$/;
+        const match = line.match(pattern);
+
+        if (!match) continue;
+
+        const [, , , reference, month, day, description, amountStr] = match;
 
         // Parse amount (remove commas)
         const amount = parseFloat(amountStr.replace(/,/g, ''));
@@ -40,6 +49,9 @@ export function extractNBCTransactions(
         const monthNum = parseInt(month, 10);
         const dayNum = parseInt(day, 10);
 
+        // Validate month and day
+        if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) continue;
+
         // Infer year (if month is Dec and we're in Jan, use previous year)
         let year = statementYear;
         const now = new Date();
@@ -49,17 +61,23 @@ export function extractNBCTransactions(
 
         const date = new Date(year, monthNum - 1, dayNum);
 
-        // Extract location if present (last 2 uppercase letters)
+        // Extract location if present (last 2 uppercase letters before amount)
         const locationMatch = description.match(/\b([A-Z]{2})\s*$/);
         const location = locationMatch ? locationMatch[1] : undefined;
 
-        // Clean description (remove location suffix)
-        const cleanDescription = description.replace(/\s+[A-Z]{2}\s*$/, '').trim();
+        // Clean description (remove location suffix and extra spaces)
+        const cleanDescription = description
+            .replace(/\s+[A-Z]{2}\s*$/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Skip if description is too short (likely not a real transaction)
+        if (cleanDescription.length < 3) continue;
 
         // Infer category with learning from past expenses
         const category = inferCategory(cleanDescription, pastExpenses);
 
-        // Calculate confidence (1.0 if learned from history, 0.8 if from database, 0.5 if pattern-based)
+        // Calculate confidence
         const confidence = pastExpenses && pastExpenses.some(e =>
             e.description?.toUpperCase().includes(cleanDescription.split(' ')[0])
         ) ? 1.0 : 0.8;
@@ -70,7 +88,7 @@ export function extractNBCTransactions(
             amount,
             location,
             category,
-            rawText: fullMatch,
+            rawText: line.trim(),
             confidence,
         });
     }
