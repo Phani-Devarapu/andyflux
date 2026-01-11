@@ -13,6 +13,7 @@ export interface ExtractedTransaction {
 
 /**
  * Extract transactions from NBC credit card statement text
+ * Uses global regex matching since PDF text extraction doesn't preserve line breaks
  */
 export function extractNBCTransactions(
     text: string,
@@ -21,38 +22,44 @@ export function extractNBCTransactions(
 ): ExtractedTransaction[] {
     const transactions: ExtractedTransaction[] = [];
 
-    // NBC transaction pattern - more flexible to handle PDF text extraction
-    // Looking for patterns like:
-    // 11 18 U852780076 11 19 LYFT *2 RIDES 11-17 VANCOUVER BC 18.00
-    // or with pipes: 11 18 | U852780076 | 11 19 | LYFT *2 RIDES 11-17 VANCOUVER BC | 18.00
+    console.log('=== NBC TRANSACTION EXTRACTION ===');
+    console.log('Input text length:', text.length);
 
-    // Split text into lines and process each line
-    const lines = text.split('\n');
+    // NBC transaction pattern - global search across entire text
+    // Pattern matches: 11 18 U852780076 11 19 LYFT *2 RIDES 11-17 VANCOUVER BC 18.00
+    // Capture groups: (trans month) (trans day) (reference) (post month) (post day) (description) (amount)
+    const nbcPattern = /(\d{1,2})\s+(\d{1,2})\s+([A-Z]\d{9,10})\s+(\d{1,2})\s+(\d{1,2})\s+(.+?)\s+([\d,]+\.\d{2})(?=\s|$)/g;
 
-    for (const line of lines) {
-        // Look for lines with transaction pattern:
-        // Month Day (optional pipe) Reference (optional pipe) Month Day (optional pipe) Description Amount
-        const pattern = /(\d{1,2})\s+(\d{1,2})\s+\|?\s*([A-Z0-9]{8,})\s+\|?\s*(\d{1,2})\s+(\d{1,2})\s+\|?\s*(.+?)\s+([\d,]+\.\d{2})\s*$/;
-        const match = line.match(pattern);
+    let match;
+    let matchCount = 0;
 
-        if (!match) continue;
+    while ((match = nbcPattern.exec(text)) !== null) {
+        matchCount++;
 
-        const [, , , reference, month, day, description, amountStr] = match;
+        const [fullMatch, , , , month, day, description, amountStr] = match;
+
+        console.log(`Match ${matchCount}:`, fullMatch.substring(0, 80));
 
         // Parse amount (remove commas)
         const amount = parseFloat(amountStr.replace(/,/g, ''));
 
         // Skip if amount is 0 or invalid
-        if (isNaN(amount) || amount === 0) continue;
+        if (isNaN(amount) || amount === 0) {
+            console.log('  ↳ Skipping - invalid amount:', amountStr);
+            continue;
+        }
 
         // Parse date
         const monthNum = parseInt(month, 10);
         const dayNum = parseInt(day, 10);
 
         // Validate month and day
-        if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) continue;
+        if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+            console.log('  ↳ Skipping - invalid date:', month, day);
+            continue;
+        }
 
-        // Infer year (if month is Dec and we're in Jan, use previous year)
+        // Infer year
         let year = statementYear;
         const now = new Date();
         if (monthNum === 12 && now.getMonth() === 0) {
@@ -61,20 +68,25 @@ export function extractNBCTransactions(
 
         const date = new Date(year, monthNum - 1, dayNum);
 
-        // Extract location if present (last 2 uppercase letters before amount)
-        const locationMatch = description.match(/\b([A-Z]{2})\s*$/);
-        const location = locationMatch ? locationMatch[1] : undefined;
+        // Clean description
+        // Remove trailing province codes (BC, ON, QC, etc.)
+        const provinceMatch = description.match(/\s+([A-Z]{2})\s*$/);
+        const location = provinceMatch ? provinceMatch[1] : undefined;
 
-        // Clean description (remove location suffix and extra spaces)
-        const cleanDescription = description
-            .replace(/\s+[A-Z]{2}\s*$/, '')
-            .replace(/\s+/g, ' ')
+        let cleanDescription = description
+            .replace(/\s+[A-Z]{2}\s*$/, '') // Remove province code
+            .replace(/\s+/g, ' ') // Normalize spaces
             .trim();
 
-        // Skip if description is too short (likely not a real transaction)
-        if (cleanDescription.length < 3) continue;
+        // Skip if description is too short or contains header text
+        if (cleanDescription.length < 3 ||
+            cleanDescription.includes('DESCRIPTION') ||
+            cleanDescription.includes('TRANSACTION')) {
+            console.log('  ↳ Skipping - invalid description:', cleanDescription.substring(0, 30));
+            continue;
+        }
 
-        // Infer category with learning from past expenses
+        // Infer category
         const category = inferCategory(cleanDescription, pastExpenses);
 
         // Calculate confidence
@@ -82,16 +94,27 @@ export function extractNBCTransactions(
             e.description?.toUpperCase().includes(cleanDescription.split(' ')[0])
         ) ? 1.0 : 0.8;
 
+        console.log(`  ✓ Transaction ${transactions.length + 1}:`, {
+            date: date.toISOString().split('T')[0],
+            description: cleanDescription.substring(0, 30),
+            amount,
+            category
+        });
+
         transactions.push({
             date,
             description: cleanDescription,
             amount,
             location,
             category,
-            rawText: line.trim(),
+            rawText: fullMatch.trim(),
             confidence,
         });
     }
+
+    console.log(`=== EXTRACTION COMPLETE ===`);
+    console.log(`Patterns matched: ${matchCount}`);
+    console.log(`Valid transactions: ${transactions.length}`);
 
     return transactions;
 }

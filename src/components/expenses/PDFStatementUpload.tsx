@@ -81,13 +81,18 @@ export function PDFStatementUpload() {
     };
 
     const handleImport = async (transactions: ExtractedTransaction[]) => {
-        if (!user) return;
+        if (!user) {
+            console.error('No user logged in');
+            throw new Error('You must be logged in to import transactions');
+        }
+
+        console.log(`Importing ${transactions.length} transactions...`);
 
         const expensesRef = collection(db, 'users', user.uid, 'expenses');
 
         // Import all selected transactions
-        const promises = transactions.map(transaction =>
-            addDoc(expensesRef, {
+        const promises = transactions.map(transaction => {
+            const expenseData = {
                 userId: user.uid,
                 accountId: 'PERSONAL',
                 date: transaction.date,
@@ -98,10 +103,20 @@ export function PDFStatementUpload() {
                 isRecurring: false,
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
-            })
-        );
+            };
+
+            console.log('Adding expense:', expenseData);
+            return addDoc(expensesRef, expenseData);
+        });
 
         await Promise.all(promises);
+
+        console.log(`✓ Successfully imported ${transactions.length} transactions!`);
+
+        // Show success message
+        setError(null);
+        setExtractedTransactions([]);
+        setShowReview(false);
     };
 
     return (
