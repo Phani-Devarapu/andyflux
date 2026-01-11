@@ -39,9 +39,19 @@ ChartJS.register(
 // ... imports
 import { useTradeStats } from '../hooks/useTradeStats';
 import { useRecentTrades } from '../hooks/useRecentTrades';
+import { useAccount } from '../context/AccountContext';
+import { PersonalDashboard } from './PersonalDashboard';
 
 export function Dashboard() {
     const { user } = useAuth();
+    const { selectedAccount } = useAccount();
+
+    // Show PersonalDashboard for PERSONAL account
+    if (selectedAccount === 'PERSONAL') {
+        return <PersonalDashboard />;
+    }
+
+    // Trading dashboard for other accounts
     // Replaced useTrades with optimized hooks
     const { stats, loading: statsLoading, error } = useTradeStats();
     const { trades: recentTrades, loading: recentLoading } = useRecentTrades(100);
