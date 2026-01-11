@@ -451,6 +451,16 @@ export function TradeList() {
 
                     <Button
                         variant="outlined"
+                        onClick={handleDebugTrade}
+                        color="info"
+                        size="small"
+                        title="Debug first closed trade calculation"
+                    >
+                        Debug
+                    </Button>
+
+                    <Button
+                        variant="outlined"
                         onClick={handleBackfillAnnualizedReturn}
                         disabled={backfilling}
                         color="warning"
