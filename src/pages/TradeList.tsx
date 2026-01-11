@@ -395,6 +395,18 @@ export function TradeList() {
         }
     };
 
+    const handleDebugTrade = async () => {
+        if (!user) return;
+        try {
+            const { debugFirstClosedTrade } = await import('../utils/debugTrade');
+            await debugFirstClosedTrade(user.uid);
+            alert('Check the browser console for debug output!');
+        } catch (err) {
+            console.error('Debug error:', err);
+            alert('Debug failed - check console');
+        }
+    };
+
     const handleCloseCsvDialog = () => {
         setCsvImportOpen(false);
         setCsvFile(null);
