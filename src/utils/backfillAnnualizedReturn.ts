@@ -46,8 +46,13 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
                 // Calculate capital deployed
                 let capital = 0;
                 if (trade.type === 'Option' && trade.side === 'Sell') {
-                    const parsed = parseOptionSymbol(trade.symbol);
-                    capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
+                    // For sold options, use strike field if available, otherwise parse from symbol
+                    if (trade.strike) {
+                        capital = trade.strike * trade.quantity * 100;
+                    } else {
+                        const parsed = parseOptionSymbol(trade.symbol);
+                        capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
+                    }
                 } else {
                     const multiplier = trade.type === 'Option' ? 100 : 1;
                     capital = (trade.entryPrice * trade.quantity * multiplier);
@@ -57,14 +62,16 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
                     const returnPercent = (trade.pnl / capital) * 100;
                     const annualizedReturn = returnPercent * (365 / daysHeld);
 
+                    console.log(`Trade ${tradeDoc.id}: P/L=$${trade.pnl}, Capital=$${capital}, Return=${returnPercent.toFixed(2)}%, Annualized=${annualizedReturn.toFixed(2)}%`);
+
                     // Update the trade in Firestore
                     await updateDoc(doc(db, 'users', userId, 'trades', tradeDoc.id), {
                         annualizedReturn
                     });
 
                     updated++;
-                    console.log(`✓ Updated trade ${tradeDoc.id}: ${annualizedReturn.toFixed(2)}%`);
                 } else {
+                    console.warn(`Trade ${tradeDoc.id}: Capital is 0, skipping`);
                     skipped++;
                 }
             } catch (err) {

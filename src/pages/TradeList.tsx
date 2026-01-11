@@ -224,13 +224,17 @@ export function TradeList() {
                 let capitalInvested = 0;
 
                 if (row.type === 'Option' && row.side === 'Sell') {
-                    // For sold options (CSP, CC): use strike price × quantity × 100 (conservative)
-                    const parsed = parseOptionSymbol(row.symbol);
-                    if (parsed.strike) {
-                        capitalInvested = parsed.strike * row.quantity * 100;
+                    // For sold options (CSP, CC): use strike field if available
+                    if (row.strike) {
+                        capitalInvested = row.strike * row.quantity * 100;
                     } else {
-                        // Fallback if we can't parse strike
-                        capitalInvested = (row.entryPrice * row.quantity * 100) + (row.fees || 0);
+                        // Fallback to parsing from symbol
+                        const parsed = parseOptionSymbol(row.symbol);
+                        if (parsed.strike) {
+                            capitalInvested = parsed.strike * row.quantity * 100;
+                        } else {
+                            capitalInvested = (row.entryPrice * row.quantity * 100) + (row.fees || 0);
+                        }
                     }
                 } else {
                     // For bought options or stocks: use premium/price paid
