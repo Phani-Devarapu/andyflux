@@ -11,9 +11,10 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 interface ExpenseStatsProps {
     expenses: Expense[];  // Filtered expenses for the selected month
     allExpenses: Expense[];  // All expenses (for YTD calculation)
+    selectedYear: number;  // Year selected by user
 }
 
-export function ExpenseStats({ expenses, allExpenses }: ExpenseStatsProps) {
+export function ExpenseStats({ expenses, allExpenses, selectedYear }: ExpenseStatsProps) {
     const theme = useTheme();
 
     // 1. Calculate Stats
@@ -28,17 +29,16 @@ export function ExpenseStats({ expenses, allExpenses }: ExpenseStatsProps) {
             .reduce((sum, e) => sum + e.amount / 12, 0);
         const monthlyBurn = monthlyRecurring + yearlyRecurring;
 
-        // YTD: Calculate from ALL expenses for the current year
-        const currentYear = new Date().getFullYear();
+        // YTD: Calculate from ALL expenses for the SELECTED year (not current year)
         const totalYTD = allExpenses
             .filter(e => {
                 const expenseDate = new Date(e.date);
-                return expenseDate.getFullYear() === currentYear;
+                return expenseDate.getFullYear() === selectedYear;
             })
             .reduce((sum, e) => sum + e.amount, 0);
 
         return { totalThisMonth, monthlyBurn, totalYTD };
-    }, [expenses, allExpenses]);
+    }, [expenses, allExpenses, selectedYear]);
 
     // 2. Prepare Chart Data (Category Breakdown)
     const chartData = useMemo(() => {
