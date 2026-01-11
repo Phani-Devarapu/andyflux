@@ -51,6 +51,7 @@ export function TradeList() {
     const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
+    const [backfilling, setBackfilling] = useState(false);
 
     // Use Paginated Hook
     const { trades, loading: isLoading, error, deleteTrade, loadMore, hasMore } = usePaginatedTrades();
@@ -363,6 +364,33 @@ export function TradeList() {
         }
     };
 
+    const handleBackfillAnnualizedReturn = async () => {
+        if (!user) {
+            alert('You must be logged in');
+            return;
+        }
+
+        if (!window.confirm('This will calculate and save annualized returns for all your existing closed trades. Continue?')) {
+            return;
+        }
+
+        try {
+            setBackfilling(true);
+            const { backfillAnnualizedReturn } = await import('../utils/backfillAnnualizedReturn');
+            const result = await backfillAnnualizedReturn(user.uid);
+
+            alert(`Backfill complete!\n\nUpdated: ${result.updated} trades\nSkipped: ${result.skipped} trades\nErrors: ${result.errors}`);
+
+            // Reload to show updated values
+            window.location.reload();
+        } catch (err) {
+            console.error('Backfill error:', err);
+            alert(`Backfill failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        } finally {
+            setBackfilling(false);
+        }
+    };
+
     const handleCloseCsvDialog = () => {
         setCsvImportOpen(false);
         setCsvFile(null);
@@ -415,6 +443,16 @@ export function TradeList() {
                         title="Export currently loaded trades"
                     >
                         Export CSV
+                    </Button>
+
+                    <Button
+                        variant="outlined"
+                        onClick={handleBackfillAnnualizedReturn}
+                        disabled={backfilling}
+                        color="warning"
+                        title="Calculate annualized returns for all existing closed trades"
+                    >
+                        {backfilling ? 'Backfilling...' : 'Backfill Returns'}
                     </Button>
 
                     <Button
