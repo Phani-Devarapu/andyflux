@@ -27,8 +27,9 @@ export function extractNBCTransactions(
 
     // NBC transaction pattern - global search across entire text
     // Pattern matches: 11 18 U852780076 11 19 LYFT *2 RIDES 11-17 VANCOUVER BC 18.00
-    // Capture groups: (trans month) (trans day) (reference) (post month) (post day) (description) (amount)
-    const nbcPattern = /(\d{1,2})\s+(\d{1,2})\s+([A-Z]\d{9,10})\s+(\d{1,2})\s+(\d{1,2})\s+(.+?)\s+([\d,]+\.\d{2})(?=\s|$)/g;
+    // Columns: MO. J.-D. (transaction date) | REFERENCE | MO. J.-D. (posted date) | DESCRIPTION | AMOUNT
+    // We want the TRANSACTION date (first two columns), not the posted date
+    const nbcPattern = /(\d{1,2})\s+(\d{1,2})\s+([A-Z]\d{9,10})\s+\d{1,2}\s+\d{1,2}\s+(.+?)\s+([\d,]+\.\d{2})(?=\s|$)/g;
 
     let match;
     let matchCount = 0;
@@ -36,7 +37,8 @@ export function extractNBCTransactions(
     while ((match = nbcPattern.exec(text)) !== null) {
         matchCount++;
 
-        const [fullMatch, , , , month, day, description, amountStr] = match;
+        // Extract: [fullMatch, transMonth, transDay, reference, description, amount]
+        const [fullMatch, month, day, , description, amountStr] = match;
 
         console.log(`Match ${matchCount}:`, fullMatch.substring(0, 80));
 
@@ -152,19 +154,36 @@ export function detectStatementYear(text: string): number {
     console.log('Detecting statement year...');
 
     // Pattern 1: Look for "STATEMENT DATE" or "DATE DU RELEVÉ" followed by date
-    // Example: "STATEMENT DATE 2024-11-30" or "DATE DU RELEVÉ 30 11 2024"
+    // NBC format: "DATE DU RELEVÉ 25 12 17" (DD MM YY)
+    // Also try: "STATEMENT DATE 2024-11-30" or other formats
     const statementDatePatterns = [
-        /STATEMENT\s+DATE.*?(\d{4})/i,
-        /DATE\s+DU\s+RELEV[ÉE].*?(\d{4})/i,
-        /(\d{4})-(\d{2})-(\d{2})/,  // ISO date format
+        /DATE\s+DU\s+RELEV[ÉE].*?(\d{1,2})\s+(\d{1,2})\s+(\d{2})(?!\d)/i,  // DD MM YY format
+        /STATEMENT\s+DATE.*?(\d{4})-(\d{2})-(\d{2})/i,  // YYYY-MM-DD
+        /STATEMENT\s+DATE.*?(\d{1,2})\s+(\d{1,2})\s+(\d{2,4})/i,  // DD MM YY or DD MM YYYY
     ];
 
     for (const pattern of statementDatePatterns) {
         const match = text.match(pattern);
         if (match) {
-            const year = parseInt(match[1], 10);
-            if (year >= 2020 && year <= 2030) {
-                console.log('Found statement year from pattern:', year);
+            let year: number;
+
+            // Check if it's DD MM YY format (match has 4 groups)
+            if (match.length === 4 && match[3].length === 2) {
+                // Two-digit year - convert to 4 digits
+                const yy = parseInt(match[3], 10);
+                year = yy >= 0 && yy <= 30 ? 2000 + yy : 1900 + yy;
+                console.log(`Found statement date: ${match[1]}/${match[2]}/${match[3]} -> year ${year}`);
+            } else if (match[1].length === 4) {
+                // Four-digit year in first capture group
+                year = parseInt(match[1], 10);
+                console.log('Found statement year from YYYY format:', year);
+            } else {
+                // Try to find year in any capture group
+                year = parseInt(match.find(g => g && g.length === 4) || match[1], 10);
+            }
+
+            if (year >= 2000 && year <= 2030) {
+                console.log('Using statement year:', year);
                 return year;
             }
         }
