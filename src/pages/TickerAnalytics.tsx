@@ -99,7 +99,42 @@ export const TickerAnalytics = () => {
         const winRate = calculateWinRate(closed);
         const pf = calculateProfitFactor(closed);
         const expectancy = calculateExpectancy(closed);
-        return { pnl, winRate, pf, expectancy, count: closed.length };
+
+        // Calculate average annualized return
+        let avgAnnualizedReturn = 0;
+        const tradesWithReturn = closed.filter(t => {
+            if (!t.pnl || !t.exitDate || !t.date) return false;
+            const daysHeld = Math.ceil(Math.abs(new Date(t.exitDate).getTime() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24));
+            return daysHeld > 0;
+        });
+
+        if (tradesWithReturn.length > 0) {
+            const totalAnnualized = tradesWithReturn.reduce((acc, t) => {
+                const exit = new Date(t.exitDate!);
+                const entry = new Date(t.date);
+                const daysHeld = Math.ceil(Math.abs(exit.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24));
+
+                // Calculate capital (same logic as TradeList)
+                let capital = 0;
+                if (t.type === 'Option' && t.side === 'Sell') {
+                    const parsed = parseOptionSymbol(t.symbol);
+                    capital = parsed.strike ? parsed.strike * t.quantity * 100 : (t.entryPrice * t.quantity * 100);
+                } else {
+                    const multiplier = t.type === 'Option' ? 100 : 1;
+                    capital = (t.entryPrice * t.quantity * multiplier) + (t.fees || 0);
+                }
+
+                if (capital === 0) return acc;
+
+                const returnPercent = (t.pnl! / capital) * 100;
+                const annualized = returnPercent * (365 / daysHeld);
+                return acc + annualized;
+            }, 0);
+
+            avgAnnualizedReturn = totalAnnualized / tradesWithReturn.length;
+        }
+
+        return { pnl, winRate, pf, expectancy, count: closed.length, avgAnnualizedReturn };
     }, [filteredTrades]);
 
     return (
@@ -161,7 +196,7 @@ export const TickerAnalytics = () => {
             {selectedTicker && (
                 <>
                     {/* Metrics Grid */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }, gap: 3, mb: 4 }}>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(6, 1fr)' }, gap: 3, mb: 4 }}>
                         {(() => {
                             const currentData = prices[selectedTicker.toUpperCase()];
                             return (
@@ -194,6 +229,13 @@ export const TickerAnalytics = () => {
                             label="Expectancy"
                             value={formatCurrency(stats.expectancy)}
                             trend={stats.expectancy > 0 ? 'up' : 'down'}
+                            highlight
+                        />
+                        <MetricCard
+                            label="Avg Annualized Return"
+                            value={`${stats.avgAnnualizedReturn > 0 ? '+' : ''}${stats.avgAnnualizedReturn.toFixed(1)}%`}
+                            subtext="Per trade average"
+                            trend={stats.avgAnnualizedReturn > 0 ? 'up' : 'down'}
                             highlight
                         />
                     </Box>
