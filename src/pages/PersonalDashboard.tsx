@@ -1,16 +1,18 @@
-import { useMemo } from 'react';
-import { Box, Card, CardContent, Typography, LinearProgress, Chip, Stack, useTheme, Alert, Button } from '@mui/material';
-import { TrendingUp, TrendingDown, DollarSign, Activity, PlusCircle } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Box, Card, CardContent, Typography, LinearProgress, Chip, Stack, useTheme, Alert, Button, Dialog, DialogTitle, DialogContent } from '@mui/material';
+import { TrendingUp, TrendingDown, DollarSign, Activity, PlusCircle, Upload } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
 import { calculateFinancialHealth, calculateSavingsRate, calculateBudgetAdherence, calculateSpendingTrend } from '../utils/financialHealthCalculator';
 import { analyzeSpending } from '../utils/spendingAnalyzer';
 import { formatCurrency } from '../utils/calculations';
 import { startOfMonth, endOfMonth, subMonths, isWithinInterval, format } from 'date-fns';
+import { PDFStatementUpload } from '../components/expenses/PDFStatementUpload';
 
 export function PersonalDashboard() {
     const theme = useTheme();
     const { expenses, loading } = useFirestoreExpenses();
+    const [showUpload, setShowUpload] = useState(false);
 
     // Calculate current month data
     const monthlyData = useMemo(() => {
@@ -112,14 +114,31 @@ export function PersonalDashboard() {
     return (
         <Box sx={{ p: 4 }}>
             {/* Header */}
-            <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" fontWeight="bold" gutterBottom>
-                    Financial Dashboard
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    Your personal finance overview for {format(new Date(), 'MMMM yyyy')}
-                </Typography>
+            <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+                <Box>
+                    <Typography variant="h4" fontWeight="bold" gutterBottom>
+                        Financial Dashboard
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        Your personal finance overview for {format(new Date(), 'MMMM yyyy')}
+                    </Typography>
+                </Box>
+                <Button
+                    variant="contained"
+                    startIcon={<Upload size={20} />}
+                    onClick={() => setShowUpload(true)}
+                >
+                    Upload Statement
+                </Button>
             </Box>
+
+            {/* PDF Upload Dialog */}
+            <Dialog open={showUpload} onClose={() => setShowUpload(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Upload Credit Card Statement</DialogTitle>
+                <DialogContent>
+                    <PDFStatementUpload />
+                </DialogContent>
+            </Dialog>
 
             {/* Financial Health Score - Hero Section */}
             <Card sx={{ mb: 3, background: `linear-gradient(135deg, ${theme.palette.primary.main}15, ${theme.palette.secondary.main}15)`, borderRadius: 3 }}>
