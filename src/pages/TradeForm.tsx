@@ -245,16 +245,29 @@ export function TradeForm() {
                 ? calculatePnLPercent(data.entryPrice, data.exitPrice, data.side)
                 : undefined;
 
-            // Calculate annualized return for closed trades
+            // Calculate annualized return for closed trades (same formula as TickerAnalytics)
             let annualizedReturn: number | undefined = undefined;
-            if (data.status === 'Closed' && pnlPercentage !== undefined && data.exitDate) {
+            if (data.status === 'Closed' && pnl !== undefined && data.exitDate) {
                 const entryDate = new Date(data.date);
                 const exitDate = new Date(data.exitDate);
-                const daysHeld = Math.max(1, Math.floor((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
+                const daysHeld = Math.max(1, Math.ceil(Math.abs(exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
 
-                // Annualized Return = (Return% / Days Held) * 365
-                annualizedReturn = (pnlPercentage / 100) * (365 / daysHeld) * 100;
-                console.log(`Calculated annualized return: ${annualizedReturn.toFixed(2)}% (${daysHeld} days held, ${pnlPercentage.toFixed(2)}% return)`);
+                // Calculate capital deployed (same logic as TickerAnalytics)
+                let capital = 0;
+                if (data.type === 'Option' && data.side === 'Sell') {
+                    // For sold options, capital is strike * quantity * 100
+                    capital = data.strike ? data.strike * data.quantity * 100 : (data.entryPrice * data.quantity * 100);
+                } else {
+                    // For stocks/bought options
+                    const multiplier = data.type === 'Option' ? 100 : 1;
+                    capital = (data.entryPrice * data.quantity * multiplier);
+                }
+
+                if (capital > 0) {
+                    const returnPercent = (pnl / capital) * 100;
+                    annualizedReturn = returnPercent * (365 / daysHeld);
+                    console.log(`Calculated annualized return: ${annualizedReturn.toFixed(2)}% (${daysHeld} days, ${returnPercent.toFixed(2)}% return on $${capital.toFixed(2)} capital)`);
+                }
             }
 
             const riskRewardRatio = (data.stopLoss && data.target)
