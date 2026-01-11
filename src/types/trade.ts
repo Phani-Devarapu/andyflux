@@ -26,6 +26,7 @@ export interface Trade {
     status: TradeStatus;
     pnl?: number;
     pnlPercentage?: number;
+    annualizedReturn?: number;  // Annualized return percentage (calculated on close)
     riskRewardRatio?: number;
     strategy?: string; // e.g., "Reversal", "Trend", "FOMO"
     timeframe?: string;

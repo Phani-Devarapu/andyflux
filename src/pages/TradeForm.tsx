@@ -245,6 +245,18 @@ export function TradeForm() {
                 ? calculatePnLPercent(data.entryPrice, data.exitPrice, data.side)
                 : undefined;
 
+            // Calculate annualized return for closed trades
+            let annualizedReturn: number | undefined = undefined;
+            if (data.status === 'Closed' && pnlPercentage !== undefined && data.exitDate) {
+                const entryDate = new Date(data.date);
+                const exitDate = new Date(data.exitDate);
+                const daysHeld = Math.max(1, Math.floor((exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+                // Annualized Return = (Return% / Days Held) * 365
+                annualizedReturn = (pnlPercentage / 100) * (365 / daysHeld) * 100;
+                console.log(`Calculated annualized return: ${annualizedReturn.toFixed(2)}% (${daysHeld} days held, ${pnlPercentage.toFixed(2)}% return)`);
+            }
+
             const riskRewardRatio = (data.stopLoss && data.target)
                 ? calculateRiskReward(data.entryPrice, data.stopLoss, data.target, data.side)
                 : undefined;
@@ -277,6 +289,7 @@ export function TradeForm() {
                 screenshots: data.screenshots,
                 pnl,
                 pnlPercentage,
+                annualizedReturn,  // Add annualized return
                 riskRewardRatio,
                 updatedAt: new Date(),
             };
