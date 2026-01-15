@@ -47,12 +47,14 @@ export function ExpenseStats({ expenses, allExpenses, selectedYear }: ExpenseSta
             categoryMap.set(e.category, (categoryMap.get(e.category) || 0) + e.amount);
         });
 
-        // Category names are stored in expenses, not IDs
-        const labels = Array.from(categoryMap.keys());
+        // Category IDs are stored in expenses
+        const labels = Array.from(categoryMap.keys()).map(categoryId => {
+            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === categoryId)?.name || categoryId;
+        });
         const data = Array.from(categoryMap.values());
-        const bgColors = Array.from(categoryMap.keys()).map(categoryName => {
-            // Match by name, not ID
-            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.name === categoryName)?.color || '#9ca3af';
+        const bgColors = Array.from(categoryMap.keys()).map(categoryId => {
+            // Match by ID
+            return DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === categoryId)?.color || '#9ca3af';
         });
 
         return {
