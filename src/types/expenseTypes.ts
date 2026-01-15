@@ -1,4 +1,4 @@
-export type RecurringFrequency = 'monthly' | 'yearly';
+we already haexport type RecurringFrequency = 'monthly' | 'yearly';
 
 export interface Expense {
     id?: string;
@@ -41,19 +41,19 @@ export interface ExpenseCategory {
     isDefault?: boolean; // System provided categories
 }
 
-// Default Categories for Life Expenses - Vibrant, Highly Distinct Colors
+// Default Categories for Life Expenses - Rich, Premium Color Palette
 export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
-    { id: 'housing', name: 'Housing', color: '#DC2626', icon: 'Home', isDefault: true },           // Deep Red
-    { id: 'food', name: 'Dining Out', color: '#EA580C', icon: 'Utensils', isDefault: true },       // Bright Orange
-    { id: 'groceries', name: 'Groceries', color: '#16A34A', icon: 'ShoppingCart', isDefault: true }, // Green
-    { id: 'laundry', name: 'Laundry', color: '#0891B2', icon: 'Shirt', isDefault: true },          // Cyan
-    { id: 'transport', name: 'Transportation', color: '#2563EB', icon: 'Car', isDefault: true },   // Royal Blue
-    { id: 'utilities', name: 'Utilities', color: '#059669', icon: 'Zap', isDefault: true },        // Emerald
-    { id: 'bills', name: 'Bills (Phone, Wifi)', color: '#7C3AED', icon: 'Receipt', isDefault: true }, // Violet
-    { id: 'health', name: 'Health & Wellness', color: '#DB2777', icon: 'Heart', isDefault: true }, // Pink
-    { id: 'lifestyle', name: 'Lifestyle', color: '#9333EA', icon: 'ShoppingBag', isDefault: true }, // Purple
-    { id: 'debt', name: 'Debt Payments', color: '#475569', icon: 'CreditCard', isDefault: true },  // Slate
-    { id: 'savings', name: 'Savings & Invest', color: '#0D9488', icon: 'PiggyBank', isDefault: true }, // Teal
-    { id: 'education', name: 'Education', color: '#4F46E5', icon: 'GraduationCap', isDefault: true }, // Indigo
-    { id: 'other', name: 'Other', color: '#78716C', icon: 'MoreHorizontal', isDefault: true },     // Stone
+    { id: 'housing', name: 'Housing', color: '#FF6B6B', icon: 'Home', isDefault: true },           // Coral Red
+    { id: 'food', name: 'Dining Out', color: '#FF8C42', icon: 'Utensils', isDefault: true },       // Vibrant Orange
+    { id: 'groceries', name: 'Groceries', color: '#4ECDC4', icon: 'ShoppingCart', isDefault: true }, // Turquoise
+    { id: 'laundry', name: 'Laundry', color: '#95E1D3', icon: 'Shirt', isDefault: true },          // Mint
+    { id: 'transport', name: 'Transportation', color: '#5B8DEE', icon: 'Car', isDefault: true },   // Periwinkle Blue
+    { id: 'utilities', name: 'Utilities', color: '#38B2AC', icon: 'Zap', isDefault: true },        // Teal
+    { id: 'bills', name: 'Bills (Phone, Wifi)', color: '#9B59B6', icon: 'Receipt', isDefault: true }, // Amethyst
+    { id: 'health', name: 'Health & Wellness', color: '#F06292', icon: 'Heart', isDefault: true }, // Rose Pink
+    { id: 'lifestyle', name: 'Lifestyle', color: '#BA68C8', icon: 'ShoppingBag', isDefault: true }, // Orchid
+    { id: 'debt', name: 'Debt Payments', color: '#78909C', icon: 'CreditCard', isDefault: true },  // Blue Grey
+    { id: 'savings', name: 'Savings & Invest', color: '#26A69A', icon: 'PiggyBank', isDefault: true }, // Jade
+    { id: 'education', name: 'Education', color: '#7E57C2', icon: 'GraduationCap', isDefault: true }, // Deep Purple
+    { id: 'other', name: 'Other', color: '#A1887F', icon: 'MoreHorizontal', isDefault: true },     // Warm Grey
 ];
