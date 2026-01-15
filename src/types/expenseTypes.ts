@@ -1,4 +1,4 @@
-we already haexport type RecurringFrequency = 'monthly' | 'yearly';
+export type RecurringFrequency = 'monthly' | 'yearly';
 
 export interface Expense {
     id?: string;
