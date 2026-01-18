@@ -82,10 +82,10 @@ export const MERCHANT_CATEGORIES: Record<string, string> = {
     'HOME DEPOT': 'Lifestyle',
     'LOWES': 'Lifestyle',
     'TARGET': 'Lifestyle',
-    'ZARA': 'Lifestyle',
-    'H&M': 'Lifestyle',
-    'GAP': 'Lifestyle',
-    'OLD NAVY': 'Lifestyle',
+    'ZARA': 'Apparel',
+    'H&M': 'Apparel',
+    'GAP': 'Apparel',
+    'OLD NAVY': 'Apparel',
 
     // Entertainment & Subscriptions
     'CINEPLEX': 'Lifestyle',
@@ -211,7 +211,7 @@ export function inferCategory(description: string, pastExpenses?: Expense[]): st
         { keywords: ['GAS', 'FUEL', 'PETRO', 'STATION'], category: 'Transportation' },
         { keywords: ['RESTAURANT', 'CAFE', 'COFFEE', 'DINER', 'EATERY', 'FOOD'], category: 'Dining Out' },
         { keywords: ['PHARMACY', 'DRUG', 'MEDICAL', 'HEALTH'], category: 'Health & Wellness' },
-        { keywords: ['CLOTHING', 'APPAREL', 'FASHION', 'WEAR'], category: 'Lifestyle' },
+        { keywords: ['CLOTHING', 'APPAREL', 'FASHION', 'WEAR'], category: 'Apparel' },
         { keywords: ['ELECTRIC', 'UTILITY', 'WATER', 'POWER'], category: 'Utilities' },
         { keywords: ['INSURANCE'], category: 'Bills (Phone, Wifi)' },
         { keywords: ['RENT', 'MORTGAGE', 'LEASE'], category: 'Housing' },
