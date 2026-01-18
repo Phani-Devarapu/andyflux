@@ -25,7 +25,8 @@ import { useAccount } from '../../context/AccountContext';
 import { useFxRates } from '../../context/FxRateContext';
 import { format } from 'date-fns';
 import { db } from '../../utils/firebase';
-import { collection, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
+import { addMonths, addYears } from 'date-fns';
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -130,9 +131,28 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
 
                 // If adding a new expense and it's recurring, CREATE A RULE
                 if (expenseData.isRecurring) {
-                    // RecurringExpenseService.createRuleFromExpense(expenseData);
-                    // TODO: Cloud Function trigger for recurring expenses
-                    console.log("Recurring rule creation skipped (Cloud Mode)");
+                    const ruleData = {
+                        userId: user.uid,
+                        accountId: selectedAccount,
+                        category: data.category,
+                        amount: convertedAmount,
+                        description: data.description,
+                        frequency: data.frequency,
+                        isActive: true,
+                        nextDueDate: data.frequency === 'monthly'
+                            ? addMonths(dateObj, 1)
+                            : addYears(dateObj, 1),
+                        lastGeneratedDate: dateObj
+                    };
+
+                    await addDoc(collection(db, 'users', user.uid, 'recurring_rules'), {
+                        ...ruleData,
+                        nextDueDate: Timestamp.fromDate(ruleData.nextDueDate),
+                        lastGeneratedDate: Timestamp.fromDate(ruleData.lastGeneratedDate),
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    });
+                    console.log("Recurring rule created");
                 }
             }
 

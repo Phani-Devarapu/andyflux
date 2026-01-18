@@ -12,6 +12,8 @@ import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
+import { useEffect } from 'react';
+import { RecurringExpenseService } from '../services/recurringExpenseService';
 
 export function ExpenseManagerPage() {
     const { user } = useAuth();
@@ -77,6 +79,19 @@ export function ExpenseManagerPage() {
         setEditingExpense(null);
     };
 
+    // Auto-process recurring rules on load or account change
+    useEffect(() => {
+        if (user && selectedAccount) {
+            RecurringExpenseService.processRules(user.uid, selectedAccount)
+                .then(count => {
+                    if (count > 0) {
+                        console.log(`Generated ${count} recurring expenses`);
+                    }
+                })
+                .catch(err => console.error("Failed to process rules:", err));
+        }
+    }, [user, selectedAccount]);
+
     if (loading) return null;
 
     const months = [
@@ -86,6 +101,7 @@ export function ExpenseManagerPage() {
 
     return (
         <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, pb: { xs: 12, md: 10 } }}>
+
             {/* Header */}
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 4, flexWrap: 'wrap', gap: 2 }}>
                 <Box>
@@ -168,7 +184,7 @@ export function ExpenseManagerPage() {
             />
 
             {/* Subscriptions */}
-            <SubscriptionList expenses={expenses} />
+            <SubscriptionList />
 
             {/* Recent Transactions List */}
             <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>

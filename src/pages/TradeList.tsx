@@ -49,6 +49,7 @@ export function TradeList() {
     const [importStatus, setImportStatus] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [selectedTrade, setSelectedTrade] = useState<Trade | null>(null);
+    const [backfilling, setBackfilling] = useState(false);
     const csvFileInputRef = useRef<HTMLInputElement>(null);
     const jsonFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -394,18 +395,6 @@ export function TradeList() {
         }
     };
 
-    const handleDebugTrade = async () => {
-        if (!user) return;
-        try {
-            const { debugFirstClosedTrade } = await import('../utils/debugTrade');
-            await debugFirstClosedTrade(user.uid);
-            alert('Check the browser console for debug output!');
-        } catch (err) {
-            console.error('Debug error:', err);
-            alert('Debug failed - check console');
-        }
-    };
-
     const handleCloseCsvDialog = () => {
         setCsvImportOpen(false);
         setCsvFile(null);
@@ -468,6 +457,18 @@ export function TradeList() {
                         sx={{ bgcolor: 'emerald.main' }}
                     >
                         New Trade
+                    </Button>
+
+                    {/* Maintenance / Debug Actions */}
+                    <Button
+                        variant="outlined"
+                        color="secondary"
+                        onClick={handleBackfillAnnualizedReturn}
+                        disabled={backfilling}
+                        size="small"
+                        sx={{ display: { xs: 'none', lg: 'inline-flex' } }}
+                    >
+                        {backfilling ? 'Backfilling...' : 'Update Returns'}
                     </Button>
                 </Stack>
             </Box>
