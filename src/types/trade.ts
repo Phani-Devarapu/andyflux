@@ -1,7 +1,15 @@
-export type TradeType = 'Stock' | 'ETF' | 'Option' | 'Future' | 'Crypto' | 'Forex';
+export type TradeType = 'Stock' | 'ETF' | 'Option' | 'Future' | 'Crypto' | 'Forex' | 'Spread';
 export type TradeSide = 'Buy' | 'Sell';
 export type TradeStatus = 'Open' | 'Closed';
 export type WinLoss = 'Win' | 'Loss' | 'Breakeven' | 'Open';
+
+export interface TradeLeg {
+    side: TradeSide;
+    strike: number;
+    optionType: 'Call' | 'Put';
+    expiration: Date;
+    quantity: number;
+}
 
 import { type AccountType } from '../context/AccountContext';
 
@@ -23,6 +31,7 @@ export interface Trade {
     optionType?: 'Call' | 'Put';
     stopLoss?: number;
     target?: number;
+    legs?: TradeLeg[]; // For multi-leg trades like spreads
     status: TradeStatus;
     pnl?: number;
     pnlPercentage?: number;

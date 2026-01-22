@@ -64,7 +64,9 @@ export function StrategyAnalytics() {
         acc[strategy].pnl += (trade.pnl || 0);
         if ((trade.pnl || 0) > 0) acc[strategy].wins++;
         else acc[strategy].losses++;
-        acc[strategy].volume += (trade.quantity * trade.entryPrice);
+
+        const multiplier = (trade.type === 'Option' || trade.type === 'Spread') ? 100 : 1;
+        acc[strategy].volume += (trade.quantity * trade.entryPrice * multiplier);
         return acc;
     }, {} as Record<string, StrategyStat>);
 

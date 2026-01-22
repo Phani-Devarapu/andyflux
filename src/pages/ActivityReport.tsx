@@ -158,6 +158,10 @@ export function ActivityReport() {
             if (d.getFullYear() !== year) return false;
             if (periodType === 'month' && d.getMonth() + 1 !== selectedPeriod) return false;
             if (periodType === 'week' && getWeekNumber(d) !== selectedPeriod) return false;
+
+            // For stocks/options, Buy opens a position. 
+            // For spreads, both Buy (Debit) and Sell (Credit) open a position.
+            if (t.type === 'Spread') return true;
             return t.side === 'Buy';
         });
     }, [rawTrades, year, periodType, selectedPeriod]);
@@ -172,7 +176,30 @@ export function ActivityReport() {
             }
             groups[t.symbol].count++;
             groups[t.symbol].qtyAdded += t.quantity;
-            groups[t.symbol].invested += (t.entryPrice * t.quantity) + (t.fees || 0);
+
+            // Calculate invested amount (capital)
+            let invested = 0;
+            if (t.type === 'Spread') {
+                if (t.side === 'Sell') {
+                    // Credit Spread: Margin = strike diff * 100 * qty
+                    if (t.legs && t.legs.length >= 2) {
+                        const strikes = t.legs.map(l => l.strike || 0);
+                        const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                        invested = (strikeDiff * t.quantity * 100);
+                    } else {
+                        invested = (t.entryPrice * t.quantity * 100);
+                    }
+                } else {
+                    // Debit Spread: Net Debit * 100 * qty
+                    invested = (t.entryPrice * t.quantity * 100);
+                }
+            } else if (t.type === 'Option') {
+                invested = (t.entryPrice * t.quantity * 100);
+            } else {
+                invested = (t.entryPrice * t.quantity);
+            }
+
+            groups[t.symbol].invested += invested + (t.fees || 0);
         });
 
         // Calculate avgPrice and convert to array
@@ -218,8 +245,26 @@ export function ActivityReport() {
         if (!rawTrades) return null;
 
         const monthlyInvested = new Array(12).fill(0);
-        rawTrades.filter(t => t.date.getFullYear() === year && t.side === 'Buy').forEach(t => {
-            monthlyInvested[t.date.getMonth()] += (t.entryPrice * t.quantity);
+        rawTrades.filter(t => t.date.getFullYear() === year && (t.type === 'Spread' || t.side === 'Buy')).forEach(t => {
+            let capital = 0;
+            if (t.type === 'Spread') {
+                if (t.side === 'Sell') {
+                    if (t.legs && t.legs.length >= 2) {
+                        const strikes = t.legs.map(l => l.strike || 0);
+                        const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                        capital = (strikeDiff * t.quantity * 100);
+                    } else {
+                        capital = (t.entryPrice * t.quantity * 100);
+                    }
+                } else {
+                    capital = (t.entryPrice * t.quantity * 100);
+                }
+            } else if (t.type === 'Option') {
+                capital = (t.entryPrice * t.quantity * 100);
+            } else {
+                capital = (t.entryPrice * t.quantity);
+            }
+            monthlyInvested[t.date.getMonth()] += capital;
         });
 
         return {
@@ -291,9 +336,10 @@ export function ActivityReport() {
                 const marketData = prices[t.symbol.toUpperCase()];
                 if (marketData) {
                     const currentDiff = marketData.price - t.entryPrice;
+                    const multiplier = t.type === 'Option' ? 100 : 1;
                     const tradePnL = t.side === 'Buy'
-                        ? currentDiff * t.quantity
-                        : -currentDiff * t.quantity;
+                        ? currentDiff * t.quantity * multiplier
+                        : -currentDiff * t.quantity * multiplier;
                     unrealizedPnL += tradePnL;
                 }
             }

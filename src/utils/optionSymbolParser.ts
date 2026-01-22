@@ -118,6 +118,9 @@ export function formatSymbolForDisplay(symbol: string, tradeType?: string): stri
         const parsed = parseOptionSymbol(symbol);
         return parsed.display;
     }
+    if (tradeType === 'Spread') {
+        return symbol; // Spreads are already formatted in TradeForm
+    }
     return symbol;
 }
 

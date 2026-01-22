@@ -127,9 +127,34 @@ export function TradeDetailsDialog({ open, onClose, trade }: TradeDetailsDialogP
                     </Grid>
 
                     {/* Additional Info */}
-                    {(trade.notes || (trade.riskRewardRatio && trade.riskRewardRatio > 0)) && (
+                    {(trade.notes || (trade.riskRewardRatio && trade.riskRewardRatio > 0) || (trade.legs && trade.legs.length > 0)) && (
                         <Grid size={{ xs: 12 }}>
                             <Paper variant="outlined" sx={{ p: 2 }}>
+                                {trade.legs && trade.legs.length > 0 && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="subtitle2" gutterBottom fontWeight="bold">Spread Legs</Typography>
+                                        <Grid container spacing={1}>
+                                            {trade.legs.map((leg, idx) => (
+                                                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={idx}>
+                                                    <Paper variant="outlined" sx={{ p: 1, bgcolor: 'background.paper' }}>
+                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Typography variant="caption" fontWeight="bold" color={leg.side === 'Buy' ? 'success.main' : 'error.main'}>
+                                                                {leg.side} {leg.quantity}
+                                                            </Typography>
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {new Date(leg.expiration).toLocaleDateString()}
+                                                            </Typography>
+                                                        </Box>
+                                                        <Typography variant="body2" fontWeight="medium">
+                                                            ${leg.strike} {leg.optionType}
+                                                        </Typography>
+                                                    </Paper>
+                                                </Grid>
+                                            ))}
+                                        </Grid>
+                                        <Divider sx={{ my: 2 }} />
+                                    </Box>
+                                )}
                                 <Typography variant="subtitle2" gutterBottom>Additional Info</Typography>
                                 <Grid container spacing={2}>
                                     {trade.riskRewardRatio && (

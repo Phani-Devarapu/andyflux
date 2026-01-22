@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/incompatible-library */
-import { useForm, Controller, type Resolver, type SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, useFieldArray, type Resolver, type SubmitHandler } from 'react-hook-form';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -46,11 +46,19 @@ const numberFromAny = z.union([z.number(), z.nan(), z.string(), z.null(), z.unde
         return isNaN(parsed) ? undefined : parsed;
     });
 
+const legSchema = z.object({
+    side: z.enum(['Buy', 'Sell']),
+    strike: z.number().positive(),
+    optionType: z.enum(['Call', 'Put']),
+    expiration: z.string(),
+    quantity: z.number().positive(),
+});
+
 const tradeSchema = z.object({
     date: z.string(),
     exitDate: z.string().optional(),
     symbol: z.string().min(1, 'Symbol is required').toUpperCase(),
-    type: z.enum(['Stock', 'ETF', 'Option', 'Future', 'Crypto', 'Forex']),
+    type: z.enum(['Stock', 'ETF', 'Option', 'Future', 'Crypto', 'Forex', 'Spread']),
     side: z.enum(['Buy', 'Sell']),
     entryPrice: z.number().positive('Price must be positive'),
     exitPrice: numberFromAny.pipe(z.number().min(0, 'Price cannot be negative').optional()),
@@ -59,6 +67,8 @@ const tradeSchema = z.object({
     strike: numberFromAny.pipe(z.number().positive().optional()),
     expiration: z.string().optional(),
     optionType: z.enum(['Call', 'Put']).optional(),
+    // Spread fields
+    legs: z.array(legSchema).optional(),
     stopLoss: numberFromAny.pipe(z.number().positive().optional()),
     target: numberFromAny.pipe(z.number().positive().optional()),
     status: z.enum(['Open', 'Closed']),
@@ -67,7 +77,6 @@ const tradeSchema = z.object({
     emotions: z.array(z.string()).optional(),
     screenshots: z.array(z.string()).optional(),
     notes: z.string().optional(),
-
 }).refine((data) => {
     // If status is Closed, exitDate should be provided
     if (data.status === 'Closed' && !data.exitDate) {
@@ -77,6 +86,15 @@ const tradeSchema = z.object({
 }, {
     message: 'Exit date is required for closed trades',
     path: ['exitDate'],
+}).refine((data) => {
+    // If type is Spread, legs should be provided and have at least 2 legs
+    if (data.type === 'Spread' && (!data.legs || data.legs.length < 2)) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'At least 2 legs are required for a spread',
+    path: ['legs'],
 });
 
 type TradeFormValues = z.infer<typeof tradeSchema>;
@@ -107,6 +125,11 @@ export function TradeForm() {
             status: 'Open',
             quantity: 1,
         },
+    });
+
+    const { fields, append, remove, replace } = useFieldArray({
+        control,
+        name: "legs",
     });
 
     const entryPrice = watch('entryPrice');
@@ -140,6 +163,102 @@ export function TradeForm() {
             setValue('optionType', 'Put');
         }
     }, [strategy, setValue]);
+
+    // Initialize 2 legs if type is Spread and legs are empty
+    useEffect(() => {
+        if (type === 'Spread' && fields.length === 0) {
+            replace([
+                { side: 'Sell', strike: 0, optionType: 'Put', expiration: new Date().toISOString().split('T')[0], quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: new Date().toISOString().split('T')[0], quantity: 1 },
+            ]);
+        }
+    }, [type, fields.length, replace]);
+
+    const SPREAD_TEMPLATES = {
+        'bull_call': {
+            name: 'Bull Call Spread (Debit)',
+            strategy: 'Bull Call Spread',
+            side: 'Buy',
+            legs: [
+                { side: 'Buy', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Sell', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'bear_put': {
+            name: 'Bear Put Spread (Debit)',
+            strategy: 'Bear Put Spread',
+            side: 'Buy',
+            legs: [
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+                { side: 'Sell', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'bull_put': {
+            name: 'Bull Put Spread (Credit)',
+            strategy: 'Bull Put Spread',
+            side: 'Sell',
+            legs: [
+                { side: 'Sell', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'bear_call': {
+            name: 'Bear Call Spread (Credit)',
+            strategy: 'Bear Call Spread',
+            side: 'Sell',
+            legs: [
+                { side: 'Sell', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'iron_condor': {
+            name: 'Iron Condor',
+            strategy: 'Iron Condor',
+            side: 'Sell',
+            legs: [
+                { side: 'Sell', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Sell', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'long_straddle': {
+            name: 'Long Straddle',
+            strategy: 'Straddle',
+            side: 'Buy',
+            legs: [
+                { side: 'Buy', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+            ]
+        },
+        'long_strangle': {
+            name: 'Long Strangle',
+            strategy: 'Strangle',
+            side: 'Buy',
+            legs: [
+                { side: 'Buy', strike: 0, optionType: 'Call', expiration: watch('date'), quantity: 1 },
+                { side: 'Buy', strike: 0, optionType: 'Put', expiration: watch('date'), quantity: 1 },
+            ]
+        }
+    };
+
+    const applyTemplate = (templateKey: string) => {
+        const template = SPREAD_TEMPLATES[templateKey as keyof typeof SPREAD_TEMPLATES];
+        if (template) {
+            // Keep existing strikes if possible, or use current entry price
+            const currentLegs = getValues('legs') || [];
+            const newLegs = template.legs.map((leg, idx) => ({
+                ...leg,
+                strike: currentLegs[idx]?.strike || 0,
+                expiration: currentLegs[idx]?.expiration || watch('date')
+            }));
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            replace(newLegs as any);
+            setValue('strategy', template.strategy);
+            setValue('side', template.side as 'Buy' | 'Sell');
+        }
+    };
 
     // Market Data Auto-fill
     const symbol = watch('symbol');
@@ -183,12 +302,19 @@ export function TradeForm() {
                 const docSnap = await getDoc(doc(remoteDb, 'users', user.uid, 'trades', id));
                 if (docSnap.exists()) {
                     const trade = docSnap.data();
+                    const getSafeDateString = (d: unknown) => {
+                        if (!d) return undefined;
+                        if (typeof d === 'object' && 'toDate' in d && typeof (d as any).toDate === 'function') {
+                            return (d as any).toDate().toISOString().split('T')[0];
+                        }
+                        return new Date(d as string | number | Date).toISOString().split('T')[0];
+                    };
+
                     reset({
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                        ...(trade as any),
-                        date: trade.date?.toDate?.().toISOString().split('T')[0] || new Date(trade.date).toISOString().split('T')[0],
-                        exitDate: trade.exitDate ? (trade.exitDate.toDate?.().toISOString().split('T')[0] || new Date(trade.exitDate).toISOString().split('T')[0]) : undefined,
-                        expiration: trade.expiration ? (trade.expiration.toDate?.().toISOString().split('T')[0] || new Date(trade.expiration).toISOString().split('T')[0]) : undefined,
+                        ...(trade as any), // We still need a cast for the bulk object spread into react-hook-form
+                        date: getSafeDateString(trade.date) || new Date().toISOString().split('T')[0],
+                        exitDate: trade.exitDate ? getSafeDateString(trade.exitDate) : undefined,
+                        expiration: trade.expiration ? getSafeDateString(trade.expiration) : undefined,
                     });
                 }
             };
@@ -254,7 +380,22 @@ export function TradeForm() {
 
                 // Calculate capital deployed (same logic as TickerAnalytics)
                 let capital = 0;
-                if (data.type === 'Option' && data.side === 'Sell') {
+                if (data.type === 'Spread') {
+                    // For spreads, capital is often the margin (Strike Diff * 100) or Net Debit
+                    if (data.side === 'Sell') {
+                        // Credit Spread: Capital = (Strike Diff * 100 * quantity)
+                        if (data.legs && data.legs.length >= 2) {
+                            const strikes = data.legs.map(l => l.strike);
+                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                            capital = strikeDiff * data.quantity * 100;
+                        } else {
+                            capital = data.entryPrice * data.quantity * 100;
+                        }
+                    } else {
+                        // Debit Spread: Capital = Net Debit
+                        capital = data.entryPrice * data.quantity * 100;
+                    }
+                } else if (data.type === 'Option' && data.side === 'Sell') {
                     // For sold options, capital is strike * quantity * 100
                     capital = data.strike ? data.strike * data.quantity * 100 : (data.entryPrice * data.quantity * 100);
                 } else {
@@ -279,6 +420,11 @@ export function TradeForm() {
                 const underlying = data.symbol.split(' ')[0];
                 const typeLabel = data.optionType.toUpperCase();
                 formattedSymbol = `${underlying} $${data.strike} ${typeLabel}`;
+            } else if (data.type === 'Spread' && data.legs && data.legs.length >= 2) {
+                const underlying = data.symbol.split(' ')[0];
+                const strikes = data.legs.map(l => l.strike).sort((a, b) => b - a); // Sort descending
+                const optionType = data.legs[0].optionType.toUpperCase();
+                formattedSymbol = `${underlying} $${strikes[0]}/$${strikes[1]} ${optionType} Spread`;
             }
 
             const tradeData = {
@@ -312,8 +458,8 @@ export function TradeForm() {
             // const { addDoc, setDoc, doc, collection, serverTimestamp } = await import('firebase/firestore');
             // const { db: remoteDb } = await import('../utils/firebase');
 
-            const cleanData = (obj: any) => {
-                const newObj: any = {};
+            const cleanData = (obj: Record<string, unknown>) => {
+                const newObj: Record<string, unknown> = {};
                 Object.keys(obj).forEach(key => {
                     const val = obj[key];
                     if (val !== undefined) newObj[key] = val;
@@ -351,7 +497,7 @@ export function TradeForm() {
         }
     };
 
-    const onError = (errors: any) => {
+    const onError = (errors: unknown) => {
         console.error("Validation Errors:", errors);
         alert("Please fix the errors in the form before saving.");
     };
@@ -531,6 +677,7 @@ export function TradeForm() {
                             <option value="Future">Future</option>
                             <option value="Crypto">Crypto</option>
                             <option value="Forex">Forex</option>
+                            <option value="Spread">Spread</option>
                         </TextField>
                     </Grid>
 
@@ -692,6 +839,139 @@ export function TradeForm() {
                                         </TextField>
                                     </Grid>
                                 </Grid>
+                            </Paper>
+                        </Grid>
+                    )}
+
+                    {/* Spread Details - Only shown if type is Spread */}
+                    {type === 'Spread' && (
+                        <Grid size={{ xs: 12 }}>
+                            <Paper
+                                variant="outlined"
+                                sx={{
+                                    p: 3,
+                                    bgcolor: theme => theme.palette.mode === 'dark'
+                                        ? 'rgba(16, 185, 129, 0.05)'
+                                        : 'rgba(16, 185, 129, 0.02)',
+                                    borderColor: 'success.main',
+                                    borderRadius: 2,
+                                    borderWidth: 1.5
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                                    <Typography
+                                        variant="subtitle2"
+                                        sx={{
+                                            color: 'success.main',
+                                            fontWeight: 700,
+                                            textTransform: 'uppercase',
+                                            letterSpacing: 1
+                                        }}
+                                    >
+                                        Spread Details (Legs)
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                        <TextField
+                                            select
+                                            label="Select Template"
+                                            size="small"
+                                            defaultValue=""
+                                            onChange={(e) => applyTemplate(e.target.value)}
+                                            sx={{ minWidth: 200 }}
+                                            SelectProps={{ native: true }}
+                                            InputLabelProps={{ shrink: true }}
+                                        >
+                                            <option value="">-- Choose Template --</option>
+                                            {Object.entries(SPREAD_TEMPLATES).map(([key, value]) => (
+                                                <option key={key} value={key}>{value.name}</option>
+                                            ))}
+                                        </TextField>
+                                        <Button
+                                            size="small"
+                                            variant="outlined"
+                                            color="success"
+                                            onClick={() => append({ side: 'Buy', strike: 0, optionType: 'Put', expiration: new Date().toISOString().split('T')[0], quantity: 1 })}
+                                        >
+                                            Add Leg
+                                        </Button>
+                                    </Box>
+                                </Box>
+
+                                {fields.map((field, index) => (
+                                    <Box key={field.id} sx={{ mb: index === fields.length - 1 ? 0 : 3, pb: index === fields.length - 1 ? 0 : 3, borderBottom: index === fields.length - 1 ? 'none' : '1px dashed', borderColor: 'divider' }}>
+                                        <Grid container spacing={2} alignItems="center">
+                                            <Grid size={{ xs: 12, md: 2 }}>
+                                                <TextField
+                                                    select
+                                                    label="Side"
+                                                    fullWidth
+                                                    {...register(`legs.${index}.side` as const)}
+                                                    SelectProps={{ native: true }}
+                                                >
+                                                    <option value="Sell">Sell (Short)</option>
+                                                    <option value="Buy">Buy (Long)</option>
+                                                </TextField>
+                                            </Grid>
+                                            <Grid size={{ xs: 12, md: 2 }}>
+                                                <TextField
+                                                    label="Strike"
+                                                    type="number"
+                                                    fullWidth
+                                                    {...register(`legs.${index}.strike` as const, { valueAsNumber: true })}
+                                                />
+                                            </Grid>
+                                            <Grid size={{ xs: 12, md: 2 }}>
+                                                <TextField
+                                                    select
+                                                    label="Type"
+                                                    fullWidth
+                                                    {...register(`legs.${index}.optionType` as const)}
+                                                    SelectProps={{ native: true }}
+                                                >
+                                                    <option value="Put">Put</option>
+                                                    <option value="Call">Call</option>
+                                                </TextField>
+                                            </Grid>
+                                            <Grid size={{ xs: 12, md: 3 }}>
+                                                <Controller
+                                                    name={`legs.${index}.expiration` as const}
+                                                    control={control}
+                                                    render={({ field: { value, onChange } }) => (
+                                                        <DatePicker
+                                                            label="Expiration"
+                                                            value={value ? new Date(value) : null}
+                                                            onChange={(newValue) => {
+                                                                if (newValue) {
+                                                                    const offset = newValue.getTimezoneOffset();
+                                                                    const adjustedDate = new Date(newValue.getTime() - (offset * 60 * 1000));
+                                                                    onChange(adjustedDate.toISOString().split('T')[0]);
+                                                                }
+                                                            }}
+                                                            slotProps={{ textField: { fullWidth: true } }}
+                                                        />
+                                                    )}
+                                                />
+                                            </Grid>
+                                            <Grid size={{ xs: 12, md: 2 }}>
+                                                <TextField
+                                                    label="Qty"
+                                                    type="number"
+                                                    fullWidth
+                                                    {...register(`legs.${index}.quantity` as const, { valueAsNumber: true })}
+                                                />
+                                            </Grid>
+                                            <Grid size={{ xs: 12, md: 1 }}>
+                                                <Button
+                                                    color="error"
+                                                    onClick={() => remove(index)}
+                                                    disabled={fields.length <= 2}
+                                                >
+                                                    Remove
+                                                </Button>
+                                            </Grid>
+                                        </Grid>
+                                    </Box>
+                                ))}
                             </Paper>
                         </Grid>
                     )}

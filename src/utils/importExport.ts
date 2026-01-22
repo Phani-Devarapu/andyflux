@@ -1,4 +1,4 @@
-import Papa from 'papaparse';
+import * as Papa from 'papaparse';
 // import { db } from '../db/db'; // Removed
 
 import type { Trade } from '../types/trade';
@@ -44,6 +44,7 @@ export const importFromJson = async (file: File, userId: string) => {
                 if (Array.isArray(data)) {
                     // Validate and parse dates
                     const trades = data.map((t: Trade) => {
+                        // eslint-disable-next-line @typescript-eslint/no-unused-vars
                         const { id, ...rest } = t; // Exclude ID
                         return {
                             ...rest,
@@ -51,6 +52,11 @@ export const importFromJson = async (file: File, userId: string) => {
                             date: new Date(t.date),
                             createdAt: new Date(t.createdAt),
                             updatedAt: new Date(t.updatedAt),
+                            // Handle legs if present
+                            legs: t.legs?.map(leg => ({
+                                ...leg,
+                                expiration: new Date(leg.expiration)
+                            }))
                         };
                     });
 

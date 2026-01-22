@@ -93,11 +93,31 @@ export function Calendar() {
         const count = daysTrades.length;
         const wins = daysTrades.filter(t => (t.pnl || 0) > 0).length;
         const losses = daysTrades.filter(t => (t.pnl || 0) < 0).length;
-        // Calculate Invested: Only for Open trades or just general activity? 
-        // User wants "if its invested display as black".
-        // Let's sum invested for all Buy trades on that day, or just focus on the display logic.
-        // Ideally, if PnL is 0 (all open trades), we show the total cost of those trades.
-        const invested = daysTrades.reduce((acc, t) => acc + (t.entryPrice * t.quantity) + (t.fees || 0), 0);
+
+        // Calculate Invested (Capital): Use appropriate multipliers and margin requirements
+        const invested = daysTrades.reduce((acc, t) => {
+            let capital = 0;
+            if (t.type === 'Spread') {
+                if (t.side === 'Sell') {
+                    // Credit Spread: Margin requirement
+                    if (t.legs && t.legs.length >= 2) {
+                        const strikes = t.legs.map(l => l.strike || 0);
+                        const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                        capital = strikeDiff * t.quantity * 100;
+                    } else {
+                        capital = t.entryPrice * t.quantity * 100;
+                    }
+                } else {
+                    // Debit Spread: Cost of entry
+                    capital = t.entryPrice * t.quantity * 100;
+                }
+            } else if (t.type === 'Option') {
+                capital = t.entryPrice * t.quantity * 100;
+            } else {
+                capital = t.entryPrice * t.quantity;
+            }
+            return acc + capital + (t.fees || 0);
+        }, 0);
 
         return { pnl, count, wins, losses, invested, trades: daysTrades, hasPnL };
     };

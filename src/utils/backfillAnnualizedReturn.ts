@@ -41,14 +41,29 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
                 }
 
                 // Calculate annualized return
-                // Handle Firestore Timestamps - they have a .toDate() method
-                const exitDate = (trade.exitDate as any)?.toDate ? (trade.exitDate as any).toDate() : new Date(trade.exitDate!);
-                const entryDate = (trade.date as any)?.toDate ? (trade.date as any).toDate() : new Date(trade.date);
+                // Handle Firestore Timestamps safely
+                const getSafeDate = (d: unknown) => (d && typeof d === 'object' && 'toDate' in d && typeof d.toDate === 'function') ? d.toDate() : new Date(d as string | number | Date);
+                const exitDate = getSafeDate(trade.exitDate);
+                const entryDate = getSafeDate(trade.date);
                 const daysHeld = Math.max(1, Math.ceil(Math.abs(exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
 
                 // Calculate capital deployed
                 let capital = 0;
-                if (trade.type === 'Option' && trade.side === 'Sell') {
+                if (trade.type === 'Spread') {
+                    if (trade.side === 'Sell') {
+                        // Credit Spread: Margin
+                        if (trade.legs && trade.legs.length >= 2) {
+                            const strikes = trade.legs.map(l => l.strike || 0);
+                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                            capital = strikeDiff * trade.quantity * 100;
+                        } else {
+                            capital = trade.entryPrice * trade.quantity * 100;
+                        }
+                    } else {
+                        // Debit Spread: Net Debit
+                        capital = trade.entryPrice * trade.quantity * 100;
+                    }
+                } else if (trade.type === 'Option' && trade.side === 'Sell') {
                     // For sold options, use strike field if available, otherwise parse from symbol
                     if (trade.strike) {
                         capital = trade.strike * trade.quantity * 100;

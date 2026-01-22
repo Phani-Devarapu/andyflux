@@ -3,15 +3,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { importFromJson, importFromCsv, exportToCsv, exportToJson } from '../utils/importExport';
 
 // Mock Firebase modules
-const mockBatchSet = vi.fn();
-const mockBatchCommit = vi.fn();
-const mockWriteBatch = vi.fn(() => ({
-    set: mockBatchSet,
-    commit: mockBatchCommit
+const { mockBatchSet, mockBatchCommit, mockWriteBatch, mockDoc, mockCollection, mockDb } = vi.hoisted(() => ({
+    mockBatchSet: vi.fn(),
+    mockBatchCommit: vi.fn(),
+    mockWriteBatch: vi.fn(() => ({
+        set: vi.fn(), // We'll set this to mockBatchSet in a moment
+        commit: vi.fn(),
+    })),
+    mockDoc: vi.fn(() => 'mockDocRef'),
+    mockCollection: vi.fn(() => 'mockCollectionRef'),
+    mockDb: {},
 }));
-const mockDoc = vi.fn(() => 'mockDocRef');
-const mockCollection = vi.fn(() => 'mockCollectionRef');
-const mockDb = {};
+
+// Setup internal mock implementation
+mockWriteBatch.mockImplementation(() => ({
+    set: mockBatchSet,
+    commit: mockBatchCommit,
+}));
 
 vi.mock('firebase/firestore', () => ({
     getFirestore: vi.fn(),
@@ -25,16 +33,20 @@ vi.mock('../utils/firebase', () => ({
 }));
 
 // Mock Papaparse
-// We need to allow mocking parse implementation per test
-const mockParse = vi.fn();
-const mockUnparse = vi.fn();
+const { mockParse, mockUnparse } = vi.hoisted(() => ({
+    mockParse: vi.fn(),
+    mockUnparse: vi.fn(),
+}));
 
 vi.mock('papaparse', () => {
     return {
         default: {
             parse: (...args: any[]) => mockParse(...args),
             unparse: (...args: any[]) => mockUnparse(...args)
-        }
+        },
+        // Also mock named exports if they are used as such
+        parse: (...args: any[]) => mockParse(...args),
+        unparse: (...args: any[]) => mockUnparse(...args)
     };
 });
 

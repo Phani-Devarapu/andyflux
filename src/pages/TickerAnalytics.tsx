@@ -47,11 +47,14 @@ export const TickerAnalytics = () => {
         trades.forEach(t => {
             if (!t.symbol) return;
 
-            // For options, extract the underlying symbol
+            // For options and spreads, extract the underlying symbol
             if (t.type === 'Option') {
                 const parsed = parseOptionSymbol(t.symbol);
                 console.log('Option symbol:', t.symbol, '→ Underlying:', parsed.underlying);
                 tickers.add(parsed.underlying);
+            } else if (t.type === 'Spread') {
+                const underlying = t.symbol.split(' ')[0];
+                tickers.add(underlying);
             } else {
                 tickers.add(t.symbol);
             }
@@ -71,10 +74,14 @@ export const TickerAnalytics = () => {
             .filter(t => {
                 if (!t.symbol) return false;
 
-                // For options, compare underlying symbol
+                // For options and spreads, compare underlying symbol
                 if (t.type === 'Option') {
                     const parsed = parseOptionSymbol(t.symbol);
                     return parsed.underlying === selectedTicker;
+                }
+                if (t.type === 'Spread') {
+                    const underlying = t.symbol.split(' ')[0];
+                    return underlying === selectedTicker;
                 }
 
                 // For stocks/ETFs, compare directly
@@ -114,9 +121,23 @@ export const TickerAnalytics = () => {
                 const entry = new Date(t.date);
                 const daysHeld = Math.ceil(Math.abs(exit.getTime() - entry.getTime()) / (1000 * 60 * 60 * 24));
 
-                // Calculate capital (same logic as TradeList)
+                // Calculate capital (same logic as TradeList/TradeForm)
                 let capital = 0;
-                if (t.type === 'Option' && t.side === 'Sell') {
+                if (t.type === 'Spread') {
+                    if (t.side === 'Sell') {
+                        // Credit Spread: Capital = margin (strike diff * 100)
+                        if (t.legs && t.legs.length >= 2) {
+                            const strikes = t.legs.map(l => l.strike || 0);
+                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                            capital = strikeDiff * t.quantity * 100;
+                        } else {
+                            capital = t.entryPrice * t.quantity * 100;
+                        }
+                    } else {
+                        // Debit Spread: Capital = Net Debit
+                        capital = t.entryPrice * t.quantity * 100;
+                    }
+                } else if (t.type === 'Option' && t.side === 'Sell') {
                     const parsed = parseOptionSymbol(t.symbol);
                     capital = parsed.strike ? parsed.strike * t.quantity * 100 : (t.entryPrice * t.quantity * 100);
                 } else {
@@ -266,7 +287,7 @@ export const TickerAnalytics = () => {
                                         // Format symbol for display (shows strike for options)
                                         const displaySymbol = trade.type === 'Option'
                                             ? parseOptionSymbol(trade.symbol).display
-                                            : trade.symbol;
+                                            : trade.symbol; // Spreads are already formatted
 
                                         // Calculate annualized return for closed trades
                                         let annualizedReturn: number | null = null;
@@ -277,7 +298,19 @@ export const TickerAnalytics = () => {
 
                                             if (daysHeld > 0) {
                                                 let capital = 0;
-                                                if (trade.type === 'Option' && trade.side === 'Sell') {
+                                                if (trade.type === 'Spread') {
+                                                    if (trade.side === 'Sell') {
+                                                        if (trade.legs && trade.legs.length >= 2) {
+                                                            const strikes = trade.legs.map(l => l.strike || 0);
+                                                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                                                            capital = strikeDiff * trade.quantity * 100;
+                                                        } else {
+                                                            capital = trade.entryPrice * trade.quantity * 100;
+                                                        }
+                                                    } else {
+                                                        capital = trade.entryPrice * trade.quantity * 100;
+                                                    }
+                                                } else if (trade.type === 'Option' && trade.side === 'Sell') {
                                                     const parsed = parseOptionSymbol(trade.symbol);
                                                     capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
                                                 } else {

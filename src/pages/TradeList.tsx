@@ -223,7 +223,21 @@ export function TradeList() {
                 // Calculate capital invested based on trade type
                 let capitalInvested = 0;
 
-                if (row.type === 'Option' && row.side === 'Sell') {
+                if (row.type === 'Spread') {
+                    if (row.side === 'Sell') {
+                        // Credit Spread: Margin
+                        if (row.legs && row.legs.length >= 2) {
+                            const strikes = row.legs.map(l => l.strike || 0);
+                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
+                            capitalInvested = strikeDiff * row.quantity * 100;
+                        } else {
+                            capitalInvested = row.entryPrice * row.quantity * 100;
+                        }
+                    } else {
+                        // Debit Spread: Net Debit
+                        capitalInvested = row.entryPrice * row.quantity * 100;
+                    }
+                } else if (row.type === 'Option' && row.side === 'Sell') {
                     // For sold options (CSP, CC): use strike field if available
                     if (row.strike) {
                         capitalInvested = row.strike * row.quantity * 100;
