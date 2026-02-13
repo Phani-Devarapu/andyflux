@@ -1,7 +1,7 @@
 import {
     Home, Utensils, Car, Zap, Heart, ShoppingBag, CreditCard,
     PiggyBank, GraduationCap, MoreHorizontal, HelpCircle,
-    Shirt, ShoppingCart, Receipt
+    Shirt, ShoppingCart, Receipt, Coffee
 } from 'lucide-react';
 
 export const getCategoryIcon = (iconName?: string) => {
@@ -19,6 +19,7 @@ export const getCategoryIcon = (iconName?: string) => {
         case 'Shirt': return Shirt;
         case 'ShoppingCart': return ShoppingCart;
         case 'Receipt': return Receipt;
+        case 'Coffee': return Coffee;
         default: return HelpCircle;
     }
 };

@@ -56,5 +56,6 @@ export const DEFAULT_EXPENSE_CATEGORIES: ExpenseCategory[] = [
     { id: 'savings', name: 'Savings & Invest', color: '#26A69A', icon: 'PiggyBank', isDefault: true }, // Jade
     { id: 'education', name: 'Education', color: '#7E57C2', icon: 'GraduationCap', isDefault: true }, // Deep Purple
     { id: 'apparel', name: 'Apparel', color: '#F4A261', icon: 'Shirt', isDefault: true },           // Sandy Brown
+    { id: 'coffee', name: 'Coffee', color: '#8D6E63', icon: 'Coffee', isDefault: true },            // Coffee Brown
     { id: 'other', name: 'Other', color: '#A1887F', icon: 'MoreHorizontal', isDefault: true },     // Warm Grey
 ];

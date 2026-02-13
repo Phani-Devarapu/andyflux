@@ -167,7 +167,7 @@ export function TransactionReviewDialog({ open, transactions, onClose, onImport 
                                                     sx={{ minWidth: 120 }}
                                                 >
                                                     {DEFAULT_EXPENSE_CATEGORIES.map((cat) => (
-                                                        <MenuItem key={cat.id} value={cat.name}>
+                                                        <MenuItem key={cat.id} value={cat.id}>
                                                             {cat.name}
                                                         </MenuItem>
                                                     ))}
