@@ -17,69 +17,92 @@ export class RecurringExpenseService {
      * Process all rules for a user and generate pending expenses
      */
     static async processRules(userId: string, accountId: string) {
-        const rulesRef = collection(db, 'users', userId, 'recurring_rules');
-        const q = query(rulesRef, where('accountId', '==', accountId), where('isActive', '==', true));
+        try {
+            const rulesRef = collection(db, 'users', userId, 'recurring_rules');
+            const q = query(rulesRef, where('accountId', '==', accountId), where('isActive', '==', true));
 
-        const snapshot = await getDocs(q);
-        const rules = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as RecurringExpenseRule));
+            const snapshot = await getDocs(q);
+            const rules = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as RecurringExpenseRule));
 
-        const today = startOfDay(new Date());
-        let totalGeneratedCount = 0;
+            if (rules.length === 0) return 0;
 
-        for (const rule of rules) {
-            let ruleGeneratedCount = 0;
-            // Handle both Date and Firestore Timestamp objects
-            let nextDue = (rule.nextDueDate as any).toDate ? (rule.nextDueDate as any).toDate() : new Date(rule.nextDueDate);
+            // Fetch recent expenses to check for duplicates in memory
+            // We fetch all expenses for this account to be safe and avoid composite index issues
+            const expensesRef = collection(db, 'users', userId, 'expenses');
+            const expQuery = query(expensesRef, where('accountId', '==', accountId));
+            const expSnapshot = await getDocs(expQuery);
+            const accountExpenses = expSnapshot.docs.map(d => {
+                const data = d.data();
+                return {
+                    ...data,
+                    date: data.date?.toDate ? data.date.toDate() : new Date(data.date)
+                } as any;
+            }) as any[];
 
-            // Loop in case multiple periods were missed
-            while (isBefore(nextDue, today) || nextDue.getTime() === today.getTime()) {
-                // BUG FIX: Prevent duplicate generation if expense already exists (e.g. from PDF import)
-                const startOfNextDue = startOfDay(nextDue);
-                const endOfNextDue = new Date(startOfNextDue);
-                endOfNextDue.setHours(23, 59, 59, 999);
+            const today = startOfDay(new Date());
+            let totalGeneratedCount = 0;
 
-                const existingExpensesRef = collection(db, 'users', userId, 'expenses');
-                const dupQuery = query(
-                    existingExpensesRef,
-                    where('accountId', '==', rule.accountId),
-                    where('category', '==', rule.category),
-                    where('amount', '==', rule.amount),
-                    where('date', '>=', Timestamp.fromDate(startOfNextDue)),
-                    where('date', '<=', Timestamp.fromDate(endOfNextDue))
-                );
-                const dupSnapshot = await getDocs(dupQuery);
+            for (const rule of rules) {
+                let ruleGeneratedCount = 0;
+                // Handle both Date and Firestore Timestamp objects
+                let nextDue = (rule.nextDueDate as any).toDate ? (rule.nextDueDate as any).toDate() : new Date(rule.nextDueDate);
 
-                if (dupSnapshot.empty) {
-                    await this.generateExpenseFromRule(userId, rule, nextDue);
-                    ruleGeneratedCount++;
-                } else {
-                    console.log(`Skipping duplicate expense for ${rule.description} on ${nextDue.toLocaleDateString()}`);
+                if (isNaN(nextDue.getTime())) {
+                    console.error(`Invalid nextDueDate for rule ${rule.id}:`, rule.nextDueDate);
+                    continue;
                 }
 
-                // Update next due date
-                if (rule.frequency === 'monthly') {
-                    nextDue = addMonths(nextDue, 1);
-                } else {
-                    nextDue = addYears(nextDue, 1);
+                const originalNextDueTime = nextDue.getTime();
+
+                // Loop in case multiple periods were missed
+                while (isBefore(nextDue, today) || nextDue.getTime() === today.getTime()) {
+                    // Check for duplicates in memory
+                    const startOfNextDue = startOfDay(nextDue).getTime();
+                    const endOfNextDue = startOfNextDue + (24 * 60 * 60 * 1000) - 1;
+
+                    const isDuplicate = accountExpenses.some(e =>
+                        e.category === rule.category &&
+                        Math.abs(e.amount - rule.amount) < 0.01 &&
+                        e.date.getTime() >= startOfNextDue &&
+                        e.date.getTime() <= endOfNextDue
+                    );
+
+                    if (!isDuplicate) {
+                        await this.generateExpenseFromRule(userId, rule, nextDue);
+                        ruleGeneratedCount++;
+                        // Add to local list to prevent duplicate in SAME run (e.g. if missed multiple months)
+                        accountExpenses.push({
+                            category: rule.category,
+                            amount: rule.amount,
+                            date: new Date(nextDue)
+                        });
+                    }
+
+                    // Update next due date
+                    if (rule.frequency === 'monthly') {
+                        nextDue = addMonths(nextDue, 1);
+                    } else {
+                        nextDue = addYears(nextDue, 1);
+                    }
+                }
+
+                // If we advanced the date, update the rule in Firestore
+                if (nextDue.getTime() !== originalNextDueTime) {
+                    const ruleRef = doc(db, 'users', userId, 'recurring_rules', rule.id!);
+                    await updateDoc(ruleRef, {
+                        nextDueDate: Timestamp.fromDate(nextDue),
+                        lastGeneratedDate: Timestamp.fromDate(new Date()),
+                        updatedAt: Timestamp.now()
+                    });
+                    totalGeneratedCount += ruleGeneratedCount;
                 }
             }
 
-            // If we generated any expenses for THIS rule (or skipped due to duplicates), update it in Firestore
-            // We update the rule even if we skipped so that it doesn't keep trying to generate for that date.
-            // If the loop ran at all, nextDue has advanced.
-            let originalNextDue = (rule.nextDueDate as any).toDate ? (rule.nextDueDate as any).toDate() : new Date(rule.nextDueDate);
-            if (nextDue.getTime() !== originalNextDue.getTime()) {
-                const ruleRef = doc(db, 'users', userId, 'recurring_rules', rule.id!);
-                await updateDoc(ruleRef, {
-                    nextDueDate: Timestamp.fromDate(nextDue),
-                    lastGeneratedDate: Timestamp.fromDate(new Date()),
-                    updatedAt: Timestamp.now()
-                });
-                totalGeneratedCount += ruleGeneratedCount;
-            }
+            return totalGeneratedCount;
+        } catch (error) {
+            console.error("Error in processRules:", error);
+            throw error;
         }
-
-        return totalGeneratedCount;
     }
 
     private static async generateExpenseFromRule(userId: string, rule: RecurringExpenseRule, date: Date) {
