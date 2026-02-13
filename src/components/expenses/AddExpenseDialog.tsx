@@ -27,6 +27,7 @@ import { format } from 'date-fns';
 import { db } from '../../utils/firebase';
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { addMonths, addYears } from 'date-fns';
+import { RecurringExpenseService } from '../../services/recurringExpenseService';
 
 interface AddExpenseDialogProps {
     open: boolean;
@@ -124,7 +125,43 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
             if (editExpense && editExpense.id) {
                 // Update Firestore doc
                 await updateDoc(doc(db, 'users', user.uid, 'expenses', editExpense.id.toString()), expenseData as any);
-                // Note: Updating a recurring expense's rule is disabled in cloud mode for now.
+
+                // FEATURE: Update the recurring rule if it exists or create one if toggled on
+                const existingRule = await RecurringExpenseService.findRuleForExpense(
+                    user.uid,
+                    selectedAccount!,
+                    editExpense.description || '',
+                    editExpense.category
+                );
+
+                if (existingRule && existingRule.id) {
+                    await updateDoc(doc(db, 'users', user.uid, 'recurring_rules', existingRule.id), {
+                        amount: convertedAmount,
+                        description: data.description,
+                        category: data.category,
+                        frequency: data.frequency,
+                        isActive: data.isRecurring, // Deactivate rule if unchecked
+                        updatedAt: Timestamp.now()
+                    });
+                } else if (data.isRecurring && !editExpense.isRecurring) {
+                    // Toggled ON during edit
+                    const ruleData = {
+                        userId: user.uid,
+                        accountId: selectedAccount,
+                        category: data.category,
+                        amount: convertedAmount,
+                        description: data.description,
+                        frequency: data.frequency,
+                        isActive: true,
+                        nextDueDate: data.frequency === 'monthly'
+                            ? addMonths(dateObj, 1)
+                            : addYears(dateObj, 1),
+                        lastGeneratedDate: dateObj,
+                        createdAt: Timestamp.now(),
+                        updatedAt: Timestamp.now()
+                    };
+                    await addDoc(collection(db, 'users', user.uid, 'recurring_rules'), ruleData);
+                }
             } else {
                 // Add to Firestore
                 await addDoc(collection(db, 'users', user.uid, 'expenses'), expenseData as any);
@@ -142,16 +179,12 @@ export function AddExpenseDialog({ open, onClose, editExpense, onSave }: AddExpe
                         nextDueDate: data.frequency === 'monthly'
                             ? addMonths(dateObj, 1)
                             : addYears(dateObj, 1),
-                        lastGeneratedDate: dateObj
-                    };
-
-                    await addDoc(collection(db, 'users', user.uid, 'recurring_rules'), {
-                        ...ruleData,
-                        nextDueDate: Timestamp.fromDate(ruleData.nextDueDate),
-                        lastGeneratedDate: Timestamp.fromDate(ruleData.lastGeneratedDate),
+                        lastGeneratedDate: dateObj,
                         createdAt: Timestamp.now(),
                         updatedAt: Timestamp.now()
-                    });
+                    };
+
+                    await addDoc(collection(db, 'users', user.uid, 'recurring_rules'), ruleData);
                     console.log("Recurring rule created");
                 }
             }
