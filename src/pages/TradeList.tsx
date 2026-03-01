@@ -252,7 +252,8 @@ export function TradeList() {
                     }
                 } else {
                     // For bought options or stocks: use premium/price paid
-                    const multiplier = row.type === 'Option' ? 100 : 1;
+                    // entryPrice for options is the total per-contract cost (not per-share)
+                    const multiplier = row.type === 'Option' ? 1 : 1;
                     capitalInvested = (row.entryPrice * row.quantity * multiplier) + (row.fees || 0);
                 }
 

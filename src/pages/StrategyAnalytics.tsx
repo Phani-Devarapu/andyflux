@@ -65,7 +65,8 @@ export function StrategyAnalytics() {
         if ((trade.pnl || 0) > 0) acc[strategy].wins++;
         else acc[strategy].losses++;
 
-        const multiplier = (trade.type === 'Option' || trade.type === 'Spread') ? 100 : 1;
+        // For spreads, entryPrice is per-share net debit → ×100; for options, entryPrice is per-contract cost → no ×100
+        const multiplier = trade.type === 'Spread' ? 100 : 1;
         acc[strategy].volume += (trade.quantity * trade.entryPrice * multiplier);
         return acc;
     }, {} as Record<string, StrategyStat>);

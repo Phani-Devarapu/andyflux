@@ -141,7 +141,8 @@ export const TickerAnalytics = () => {
                     const parsed = parseOptionSymbol(t.symbol);
                     capital = parsed.strike ? parsed.strike * t.quantity * 100 : (t.entryPrice * t.quantity * 100);
                 } else {
-                    const multiplier = t.type === 'Option' ? 100 : 1;
+                    // entryPrice for options is the total per-contract cost (not per-share)
+                    const multiplier = t.type === 'Option' ? 1 : 1;
                     capital = (t.entryPrice * t.quantity * multiplier) + (t.fees || 0);
                 }
 
@@ -314,7 +315,8 @@ export const TickerAnalytics = () => {
                                                     const parsed = parseOptionSymbol(trade.symbol);
                                                     capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
                                                 } else {
-                                                    const multiplier = trade.type === 'Option' ? 100 : 1;
+                                                    // entryPrice for options is the total per-contract cost (not per-share)
+                                                    const multiplier = trade.type === 'Option' ? 1 : 1;
                                                     capital = (trade.entryPrice * trade.quantity * multiplier) + (trade.fees || 0);
                                                 }
 

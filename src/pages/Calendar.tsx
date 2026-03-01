@@ -112,7 +112,8 @@ export function Calendar() {
                     capital = t.entryPrice * t.quantity * 100;
                 }
             } else if (t.type === 'Option') {
-                capital = t.entryPrice * t.quantity * 100;
+                // entryPrice for options is the total per-contract cost (not per-share)
+                capital = t.entryPrice * t.quantity;
             } else {
                 capital = t.entryPrice * t.quantity;
             }
