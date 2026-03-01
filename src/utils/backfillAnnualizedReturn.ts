@@ -5,8 +5,8 @@
 
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
-import { parseOptionSymbol } from './optionSymbolParser';
 import type { Trade } from '../types/trade';
+import { calculateCapital } from './calculateCapital';
 
 export async function backfillAnnualizedReturn(userId: string): Promise<{ updated: number; skipped: number; errors: number }> {
     let updated = 0;
@@ -47,34 +47,8 @@ export async function backfillAnnualizedReturn(userId: string): Promise<{ update
                 const entryDate = getSafeDate(trade.date);
                 const daysHeld = Math.max(1, Math.ceil(Math.abs(exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
 
-                // Calculate capital deployed
-                let capital = 0;
-                if (trade.type === 'Spread') {
-                    if (trade.side === 'Sell') {
-                        // Credit Spread: Margin
-                        if (trade.legs && trade.legs.length >= 2) {
-                            const strikes = trade.legs.map(l => l.strike || 0);
-                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
-                            capital = strikeDiff * trade.quantity * 100;
-                        } else {
-                            capital = trade.entryPrice * trade.quantity * 100;
-                        }
-                    } else {
-                        // Debit Spread: Net Debit
-                        capital = trade.entryPrice * trade.quantity * 100;
-                    }
-                } else if (trade.type === 'Option' && trade.side === 'Sell') {
-                    // For sold options, use strike field if available, otherwise parse from symbol
-                    if (trade.strike) {
-                        capital = trade.strike * trade.quantity * 100;
-                    } else {
-                        const parsed = parseOptionSymbol(trade.symbol);
-                        capital = parsed.strike ? parsed.strike * trade.quantity * 100 : (trade.entryPrice * trade.quantity * 100);
-                    }
-                } else {
-                    const multiplier = trade.type === 'Option' ? 100 : 1;
-                    capital = (trade.entryPrice * trade.quantity * multiplier);
-                }
+                // Calculate capital deployed using shared utility
+                const capital = calculateCapital(trade);
 
                 if (capital > 0) {
                     const returnPercent = (trade.pnl / capital) * 100;

@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { useNavigate, useParams } from 'react-router-dom';
 // import { db } from '../db/db'; // Unused
 import { calculatePnL, calculatePnLPercent, calculateRiskReward } from '../utils/calculations';
+import { calculateCapital } from '../utils/calculateCapital';
 import { useEffect } from 'react';
 import { useAccount } from '../context/AccountContext';
 import { useAuth } from '../context/AuthContext';
@@ -378,31 +379,8 @@ export function TradeForm() {
                 const exitDate = new Date(data.exitDate);
                 const daysHeld = Math.max(1, Math.ceil(Math.abs(exitDate.getTime() - entryDate.getTime()) / (1000 * 60 * 60 * 24)));
 
-                // Calculate capital deployed (same logic as TickerAnalytics)
-                let capital = 0;
-                if (data.type === 'Spread') {
-                    // For spreads, capital is often the margin (Strike Diff * 100) or Net Debit
-                    if (data.side === 'Sell') {
-                        // Credit Spread: Capital = (Strike Diff * 100 * quantity)
-                        if (data.legs && data.legs.length >= 2) {
-                            const strikes = data.legs.map(l => l.strike);
-                            const strikeDiff = Math.abs(Math.max(...strikes) - Math.min(...strikes));
-                            capital = strikeDiff * data.quantity * 100;
-                        } else {
-                            capital = data.entryPrice * data.quantity * 100;
-                        }
-                    } else {
-                        // Debit Spread: Capital = Net Debit
-                        capital = data.entryPrice * data.quantity * 100;
-                    }
-                } else if (data.type === 'Option' && data.side === 'Sell') {
-                    // For sold options, capital is strike * quantity * 100
-                    capital = data.strike ? data.strike * data.quantity * 100 : (data.entryPrice * data.quantity * 100);
-                } else {
-                    // For stocks/bought options
-                    const multiplier = data.type === 'Option' ? 100 : 1;
-                    capital = (data.entryPrice * data.quantity * multiplier);
-                }
+                // Calculate capital deployed using shared utility
+                const capital = calculateCapital(data);
 
                 if (capital > 0) {
                     const returnPercent = (pnl / capital) * 100;

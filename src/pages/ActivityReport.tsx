@@ -339,10 +339,12 @@ export function ActivityReport() {
                 const marketData = prices[t.symbol.toUpperCase()];
                 if (marketData) {
                     const currentDiff = marketData.price - t.entryPrice;
-                    const multiplier = t.type === 'Option' ? 100 : 1;
+                    // No ×100: price diff × qty gives contract-level P&L
+                    // (option prices from the market feed are per-share, but our entryPrice
+                    //  is stored as per-contract total, so this comparison is approximate)
                     const tradePnL = t.side === 'Buy'
-                        ? currentDiff * t.quantity * multiplier
-                        : -currentDiff * t.quantity * multiplier;
+                        ? currentDiff * t.quantity
+                        : -currentDiff * t.quantity;
                     unrealizedPnL += tradePnL;
                 }
             }

@@ -4,8 +4,8 @@
 
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from './firebase';
-import { parseOptionSymbol } from './optionSymbolParser';
 import type { Trade } from '../types/trade';
+import { calculateCapital } from './calculateCapital';
 
 export async function debugFirstClosedTrade(userId: string) {
     try {
@@ -44,29 +44,12 @@ export async function debugFirstClosedTrade(userId: string) {
         console.log('\n=== CALCULATION ===');
         console.log('Days Held:', daysHeld);
 
-        // Calculate capital
-        let capital = 0;
-        if (trade.type === 'Option' && trade.side === 'Sell') {
-            console.log('Trade is a SOLD OPTION');
-            if (trade.strike) {
-                capital = trade.strike * trade.quantity * 100;
-                console.log(`Using strike field: $${trade.strike} × ${trade.quantity} × 100 = $${capital}`);
-            } else {
-                const parsed = parseOptionSymbol(trade.symbol);
-                console.log('Parsed symbol:', parsed);
-                if (parsed.strike) {
-                    capital = parsed.strike * trade.quantity * 100;
-                    console.log(`Using parsed strike: $${parsed.strike} × ${trade.quantity} × 100 = $${capital}`);
-                } else {
-                    capital = trade.entryPrice * trade.quantity * 100;
-                    console.log(`Fallback to entry price: $${trade.entryPrice} × ${trade.quantity} × 100 = $${capital}`);
-                }
-            }
-        } else {
-            const multiplier = trade.type === 'Option' ? 100 : 1;
-            capital = trade.entryPrice * trade.quantity * multiplier;
-            console.log(`Stock/Bought Option: $${trade.entryPrice} × ${trade.quantity} × ${multiplier} = $${capital}`);
-        }
+        // Calculate capital using shared utility
+        const capital = calculateCapital(trade);
+        const capitalDesc = trade.type === 'Option' && trade.side === 'Sell'
+            ? `sold option (strike-based): $${capital}`
+            : `${trade.type}: $${trade.entryPrice} × ${trade.quantity} = $${capital}`;
+        console.log(`Capital: ${capitalDesc}`);
 
         console.log('\nCapital:', capital);
         console.log('P/L:', trade.pnl);
