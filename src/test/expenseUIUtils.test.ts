@@ -236,3 +236,133 @@ describe('computeCompareBanner', () => {
         expect(result).toEqual({ betterCount: 0, worseCount: 0, savedAmount: 0, extraAmount: 0 });
     });
 });
+
+// ---------------------------------------------------------------------------
+// generateInsights
+// ---------------------------------------------------------------------------
+import { generateInsights, detectAnomalies } from '../utils/expenseUIUtils';
+
+describe('generateInsights', () => {
+    it('returns empty array when current month has no expenses', () => {
+        expect(generateInsights([], [], new Date(2026, 1, 15))).toHaveLength(0);
+    });
+
+    it('includes below-avg insight when current spend is 15%+ lower', () => {
+        // history: 5 months at $1000 each in Sep-Jan, avg=$1000 → current $500 (50% below)
+        const history = Array.from({ length: 5 }, (_, i) =>
+            makeExpense({ date: new Date(2025, i + 8, 10), amount: 1000, category: 'food' })
+        );
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 500, category: 'food' })];
+        const insights = generateInsights(current, [...history, ...current], new Date(2026, 1, 28));
+        expect(insights.some(i => i.id === 'below-avg')).toBe(true);
+    });
+
+    it('includes above-avg insight when current spend is 20%+ higher', () => {
+        // history: 5 months at $500 each in Sep-Jan → avg $500, current $900 (80% above)
+        const history = Array.from({ length: 5 }, (_, i) =>
+            makeExpense({ date: new Date(2025, i + 8, 10), amount: 500, category: 'food' })
+        );
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 900, category: 'food' })];
+        const insights = generateInsights(current, [...history, ...current], new Date(2026, 1, 28));
+        expect(insights.some(i => i.id === 'above-avg')).toBe(true);
+    });
+
+    it('includes projected insight on mid-month days (day 5–27)', () => {
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 200, category: 'food' })];
+        const insights = generateInsights(current, current, new Date(2026, 1, 15));
+        expect(insights.some(i => i.id === 'projected')).toBe(true);
+    });
+
+    it('does NOT include projected insight on day 1–4', () => {
+        const current = [makeExpense({ date: new Date(2026, 1, 1), amount: 200, category: 'food' })];
+        const insights = generateInsights(current, current, new Date(2026, 1, 3));
+        expect(insights.some(i => i.id === 'projected')).toBe(false);
+    });
+
+    it('includes top-cat insight when one category is 40%+ of total', () => {
+        const current = [
+            makeExpense({ date: new Date(2026, 1, 10), amount: 800, category: 'housing' }),
+            makeExpense({ date: new Date(2026, 1, 10), amount: 200, category: 'food' }),
+        ];
+        const insights = generateInsights(current, current, new Date(2026, 1, 28));
+        expect(insights.some(i => i.id === 'top-cat')).toBe(true);
+    });
+
+    it('includes budget warning when 80–99% used', () => {
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 85, category: 'food' })];
+        const budgets = [{ categoryId: 'food', limit: 100 }];
+        const insights = generateInsights(current, current, new Date(2026, 1, 28), budgets);
+        expect(insights.some(i => i.id === 'budget-warn-food')).toBe(true);
+    });
+
+    it('includes budget-over insight when 100%+ used', () => {
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 150, category: 'food' })];
+        const budgets = [{ categoryId: 'food', limit: 100 }];
+        const insights = generateInsights(current, current, new Date(2026, 1, 28), budgets);
+        expect(insights.some(i => i.id === 'budget-over-food')).toBe(true);
+    });
+
+    it('includes biggest-txn insight for transactions > $200', () => {
+        const current = [makeExpense({ date: new Date(2026, 1, 10), amount: 350, category: 'housing' })];
+        const insights = generateInsights(current, current, new Date(2026, 1, 28));
+        expect(insights.some(i => i.id === 'biggest-txn')).toBe(true);
+    });
+
+    it('caps insights at 4', () => {
+        const current = Array.from({ length: 20 }, () =>
+            makeExpense({ date: new Date(2026, 1, 10), amount: 500, category: 'food' })
+        );
+        const budgets = [{ categoryId: 'food', limit: 10 }];
+        const insights = generateInsights(current, current, new Date(2026, 1, 15), budgets);
+        expect(insights.length).toBeLessThanOrEqual(4);
+    });
+});
+
+// ---------------------------------------------------------------------------
+// detectAnomalies
+// ---------------------------------------------------------------------------
+describe('detectAnomalies', () => {
+    it('flags an expense that is 2× the category avg', () => {
+        const expenses = [
+            makeExpense({ date: new Date(), id: 'e1', category: 'food', amount: 10 }),
+            makeExpense({ date: new Date(), id: 'e2', category: 'food', amount: 10 }),
+            makeExpense({ date: new Date(), id: 'e3', category: 'food', amount: 50 }), // 5× avg (16.67)
+        ];
+        const anomalies = detectAnomalies(expenses);
+        expect(anomalies.some(a => a.expenseId === 'e3')).toBe(true);
+    });
+
+    it('does not flag expenses within normal range', () => {
+        const expenses = [
+            makeExpense({ date: new Date(), id: 'e1', category: 'food', amount: 20 }),
+            makeExpense({ date: new Date(), id: 'e2', category: 'food', amount: 25 }),
+            makeExpense({ date: new Date(), id: 'e3', category: 'food', amount: 30 }),
+        ];
+        expect(detectAnomalies(expenses)).toHaveLength(0);
+    });
+
+    it('respects custom threshold', () => {
+        // avg = (10+10+10+80)/4 = 27.5; 80 >= 27.5*2=55 → flagged at threshold 2
+        const expenses = [
+            makeExpense({ date: new Date(), id: 'e1', category: 'food', amount: 10 }),
+            makeExpense({ date: new Date(), id: 'e2', category: 'food', amount: 10 }),
+            makeExpense({ date: new Date(), id: 'e3', category: 'food', amount: 10 }),
+            makeExpense({ date: new Date(), id: 'e4', category: 'food', amount: 80 }),  // anomaly
+        ];
+        expect(detectAnomalies(expenses, 2).some(a => a.expenseId === 'e4')).toBe(true);
+        // threshold 4 → 80 >= 27.5*4=110 → false
+        expect(detectAnomalies(expenses, 4)).toHaveLength(0);
+    });
+
+    it('never flags the sole expense in a category (avg = amount → multiplier = 1)', () => {
+        const expenses = [
+            makeExpense({ date: new Date(), id: 'e1', category: 'housing', amount: 2000 }),
+        ];
+        expect(detectAnomalies(expenses)).toHaveLength(0);
+    });
+
+    it('returns empty array for empty input', () => {
+        expect(detectAnomalies([])).toHaveLength(0);
+    });
+});
+

@@ -1,5 +1,5 @@
 import { Box, Card, CardContent, Chip, IconButton, Typography, useTheme, alpha } from '@mui/material';
-import { Edit2, Trash2, RefreshCw } from 'lucide-react';
+import { Edit2, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 import type { Expense, ExpenseCategory } from '../../types/expenseTypes';
 import { format } from 'date-fns';
 import { getCategoryIcon } from '../../utils/categoryIcons';
@@ -9,20 +9,25 @@ interface ExpenseCardProps {
     category?: ExpenseCategory;
     onEdit: (expense: Expense) => void;
     onDelete: (id: string) => void;
+    isAnomaly?: boolean;
 }
 
-export function ExpenseCard({ expense, category, onEdit, onDelete }: ExpenseCardProps) {
+export function ExpenseCard({ expense, category, onEdit, onDelete, isAnomaly = false }: ExpenseCardProps) {
     const theme = useTheme();
 
     return (
         <Card sx={{
             mb: 2,
             borderRadius: 3,
-            border: `1px solid ${theme.palette.divider}`,
-            boxShadow: 'none',
+            border: `1px solid ${isAnomaly ? alpha(theme.palette.warning.main, 0.6) : theme.palette.divider}`,
+            borderLeft: isAnomaly ? `4px solid ${theme.palette.warning.main}` : undefined,
+            boxShadow: isAnomaly ? `0 0 0 1px ${alpha(theme.palette.warning.main, 0.12)}` : 'none',
+            bgcolor: isAnomaly ? alpha(theme.palette.warning.main, 0.03) : 'background.paper',
             '&:hover': {
-                borderColor: theme.palette.primary.main,
-                bgcolor: alpha(theme.palette.primary.main, 0.02)
+                borderColor: isAnomaly ? theme.palette.warning.main : theme.palette.primary.main,
+                bgcolor: isAnomaly
+                    ? alpha(theme.palette.warning.main, 0.06)
+                    : alpha(theme.palette.primary.main, 0.02)
             }
         }}>
             <CardContent sx={{
@@ -56,7 +61,7 @@ export function ExpenseCard({ expense, category, onEdit, onDelete }: ExpenseCard
 
                     {/* Details */}
                     <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
                             {category && (() => {
                                 const Icon = getCategoryIcon(category.icon);
                                 return <Icon size={18} color={category.color} strokeWidth={2.5} />;
@@ -72,6 +77,16 @@ export function ExpenseCard({ expense, category, onEdit, onDelete }: ExpenseCard
                                     color="info"
                                     variant="outlined"
                                     sx={{ height: 20, fontSize: '0.7rem' }}
+                                />
+                            )}
+                            {isAnomaly && (
+                                <Chip
+                                    icon={<AlertTriangle size={11} />}
+                                    label="Unusual"
+                                    size="small"
+                                    color="warning"
+                                    variant="outlined"
+                                    sx={{ height: 20, fontSize: '0.67rem' }}
                                 />
                             )}
                         </Box>

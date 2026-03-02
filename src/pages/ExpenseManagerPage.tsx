@@ -15,12 +15,14 @@ import { MonthComparisonView } from '../components/expenses/MonthComparisonView'
 import { SpendingTrendChart } from '../components/expenses/SpendingTrendChart';
 import { TopMerchants } from '../components/expenses/TopMerchants';
 import { CategoryBudgets } from '../components/expenses/CategoryBudgets';
+import { SmartInsightsFeed } from '../components/expenses/SmartInsightsFeed';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../types/expenseTypes';
 import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
 import { deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { RecurringExpenseService } from '../services/recurringExpenseService';
+import { generateInsights, detectAnomalies, loadBudgets } from '../utils/expenseUIUtils';
 
 export function ExpenseManagerPage() {
     const { user } = useAuth();
@@ -73,6 +75,23 @@ export function ExpenseManagerPage() {
         });
     }, [expenses, searchQuery]);
 
+    // Account-scoped all-time expenses
+    const accountExpenses = useMemo(
+        () => allExpenses.filter(e => e.accountId === selectedAccount),
+        [allExpenses, selectedAccount]
+    );
+
+    // Smart Insights + Anomaly Detection
+    const budgets = useMemo(() => loadBudgets(), []);
+    const insights = useMemo(
+        () => generateInsights(expenses, accountExpenses, new Date(), budgets),
+        [expenses, accountExpenses, budgets]
+    );
+    const anomalyIds = useMemo(
+        () => new Set(detectAnomalies(expenses).map(a => a.expenseId)),
+        [expenses]
+    );
+
     // Get available years from expenses
     const availableYears = useMemo(() => {
         const years = new Set(allExpenses.map(e => new Date(e.date).getFullYear()));
@@ -120,8 +139,6 @@ export function ExpenseManagerPage() {
         'January', 'February', 'March', 'April', 'May', 'June',
         'July', 'August', 'September', 'October', 'November', 'December'
     ];
-
-    const accountExpenses = allExpenses.filter(e => e.accountId === selectedAccount);
 
     return (
         <Container maxWidth="xl" sx={{ py: { xs: 2, md: 4 }, pb: { xs: 12, md: 10 } }}>
@@ -224,6 +241,9 @@ export function ExpenseManagerPage() {
             ) : (
                 /* ---- Normal Mode ---- */
                 <>
+                    {/* Smart Insights */}
+                    <SmartInsightsFeed insights={insights} />
+
                     {/* Spending Trend Chart */}
                     <SpendingTrendChart expenses={accountExpenses} />
 
@@ -308,6 +328,7 @@ export function ExpenseManagerPage() {
                                         category={DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === expense.category)}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
+                                        isAnomaly={expense.id ? anomalyIds.has(expense.id) : false}
                                     />
                                 </Grid>
                             ))}
