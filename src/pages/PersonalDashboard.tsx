@@ -343,14 +343,16 @@ export function PersonalDashboard() {
                                 View Details
                             </Button>
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 72 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 88 }}>
                             {trendData.map((m, i) => {
                                 const isLast = i === trendData.length - 1;
-                                const barH = trendMax > 0 ? (m.total / trendMax) * 100 : 0;
+                                // Use px heights so bars always render correctly
+                                const BAR_MAX_PX = 60;
+                                const barPx = trendMax > 0 ? Math.max((m.total / trendMax) * BAR_MAX_PX, m.total > 0 ? 4 : 0) : 0;
                                 return (
                                     <Box key={m.label} sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
                                         <Box sx={{
-                                            width: '100%', height: `${barH}%`, minHeight: 3,
+                                            width: '100%', height: `${barPx}px`,
                                             bgcolor: isLast ? theme.palette.primary.main : alpha(theme.palette.primary.main, 0.3),
                                             borderRadius: '4px 4px 0 0',
                                             transition: 'height 0.5s ease'

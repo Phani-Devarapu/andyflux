@@ -23,9 +23,13 @@ export function ExpenseStats({ expenses, allExpenses, selectedYear }: ExpenseSta
         const totalThisMonth = expenses.reduce((sum, e) => sum + e.amount, 0);
 
         // Recurring "Burn Rate" (Projected Monthly Fixed Cost)
-        const monthlyRecurring = expenses.filter(e => e.isRecurring && e.frequency === 'monthly')
+        // Treat isRecurring expenses with no frequency (or 'monthly') as monthly;
+        // pro-rate yearly ones across 12 months.
+        const monthlyRecurring = expenses
+            .filter(e => e.isRecurring && e.frequency !== 'yearly')
             .reduce((sum, e) => sum + e.amount, 0);
-        const yearlyRecurring = expenses.filter(e => e.isRecurring && e.frequency === 'yearly')
+        const yearlyRecurring = expenses
+            .filter(e => e.isRecurring && e.frequency === 'yearly')
             .reduce((sum, e) => sum + e.amount / 12, 0);
         const monthlyBurn = monthlyRecurring + yearlyRecurring;
 
