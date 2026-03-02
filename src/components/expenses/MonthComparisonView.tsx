@@ -1,18 +1,19 @@
 import { useMemo, useState } from 'react';
 import {
     Box, Paper, Typography, Grid, FormControl, InputLabel,
-    Select, MenuItem, Chip, Divider, useTheme, alpha, Stack
+    Select, MenuItem, Chip, Divider, useTheme, alpha, Stack, Alert
 } from '@mui/material';
 import { Bar } from 'react-chartjs-2';
 import {
     Chart as ChartJS, CategoryScale, LinearScale, BarElement,
     Tooltip, Legend
 } from 'chart.js';
-import { ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, Minus, TrendingDown, TrendingUp } from 'lucide-react';
 import type { Expense } from '../../types/expenseTypes';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../../types/expenseTypes';
 import { ExpenseCard } from './ExpenseCard';
 import { filterByMonth, buildCategoryMap, computeComparisonStats } from '../../utils/monthComparisonUtils';
+import { computeCompareBanner } from '../../utils/expenseUIUtils';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
@@ -188,6 +189,11 @@ export function MonthComparisonView({ allExpenses, availableYears, onEdit, onDel
     const labelA = `${MONTHS[periodA.month]} ${periodA.year}`;
     const labelB = `${MONTHS[periodB.month]} ${periodB.year}`;
 
+    const bannerData = useMemo(
+        () => computeCompareBanner(catMapA, catMapB),
+        [catMapA, catMapB]
+    );
+
     return (
         <Box>
             {/* Period Selectors */}
@@ -198,10 +204,24 @@ export function MonthComparisonView({ allExpenses, availableYears, onEdit, onDel
             </Stack>
 
             {/* Legend labels */}
-            <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
                 <Chip label={`A: ${labelA}`} sx={{ bgcolor: alpha(COLOR_A, 0.15), color: COLOR_A, fontWeight: 700 }} />
                 <Chip label={`B: ${labelB}`} sx={{ bgcolor: alpha(COLOR_B, 0.15), color: COLOR_B, fontWeight: 700 }} />
             </Stack>
+
+            {/* Summary Banner */}
+            {(bannerData.betterCount > 0 || bannerData.worseCount > 0) && (
+                <Alert
+                    severity={bannerData.savedAmount >= bannerData.extraAmount ? 'success' : 'warning'}
+                    icon={bannerData.savedAmount >= bannerData.extraAmount ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+                    sx={{ mb: 3, borderRadius: 2, fontWeight: 500 }}
+                >
+                    {bannerData.savedAmount >= bannerData.extraAmount
+                        ? `${labelB} was better in ${bannerData.betterCount} categor${bannerData.betterCount !== 1 ? 'ies' : 'y'}, saving $${bannerData.savedAmount.toFixed(2)} vs ${labelA}.`
+                        : `${labelB} spent $${bannerData.extraAmount.toFixed(2)} more across ${bannerData.worseCount} categor${bannerData.worseCount !== 1 ? 'ies' : 'y'} compared to ${labelA}.`
+                    }
+                </Alert>
+            )}
 
             {/* Summary Stats */}
             <Grid container spacing={2} sx={{ mb: 4 }}>

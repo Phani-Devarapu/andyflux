@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Box, Button, Typography, CircularProgress, Alert } from '@mui/material';
+import { Box, Button, Typography, CircularProgress, Alert, Snackbar } from '@mui/material';
 import { Upload, FileText } from 'lucide-react';
 import { parsePDFStatement, validatePDFFile } from '../../services/pdfStatementParser';
 import { TransactionReviewDialog } from './TransactionReviewDialog';
@@ -16,6 +16,7 @@ export function PDFStatementUpload() {
     const [error, setError] = useState<string | null>(null);
     const [extractedTransactions, setExtractedTransactions] = useState<ExtractedTransaction[]>([]);
     const [showReview, setShowReview] = useState(false);
+    const [successToast, setSuccessToast] = useState<string | null>(null);
 
     const handleFileSelect = useCallback(async (file: File) => {
         setError(null);
@@ -113,7 +114,8 @@ export function PDFStatementUpload() {
 
         console.log(`✓ Successfully imported ${transactions.length} transactions!`);
 
-        // Show success message
+        // Show success toast
+        setSuccessToast(`✓ ${transactions.length} transaction${transactions.length !== 1 ? 's' : ''} imported successfully!`);
         setError(null);
         setExtractedTransactions([]);
         setShowReview(false);
@@ -199,6 +201,22 @@ export function PDFStatementUpload() {
                 }}
                 onImport={handleImport}
             />
+
+            {/* Success Toast */}
+            <Snackbar
+                open={!!successToast}
+                autoHideDuration={5000}
+                onClose={() => setSuccessToast(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert
+                    severity="success"
+                    onClose={() => setSuccessToast(null)}
+                    sx={{ borderRadius: 2, fontWeight: 600 }}
+                >
+                    {successToast}
+                </Alert>
+            </Snackbar>
         </>
     );
 }
