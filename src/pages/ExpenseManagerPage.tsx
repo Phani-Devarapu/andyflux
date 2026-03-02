@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { Box, Typography, Button, Container, Grid, Fab, useTheme, MenuItem, Select, FormControl, InputLabel } from '@mui/material';
-import { Plus, Wallet } from 'lucide-react';
+import { Plus, Wallet, GitCompare } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAccount } from '../context/AccountContext';
 import { ExpenseStats } from '../components/expenses/ExpenseStats';
 import { SubscriptionList } from '../components/expenses/SubscriptionList';
 import { ExpenseCard } from '../components/expenses/ExpenseCard';
 import { AddExpenseDialog } from '../components/expenses/AddExpenseDialog';
+import { MonthComparisonView } from '../components/expenses/MonthComparisonView';
 import { DEFAULT_EXPENSE_CATEGORIES, type Expense } from '../types/expenseTypes';
 import { useFirestoreExpenses } from '../hooks/useFirestoreExpenses';
 import { deleteDoc, doc } from 'firebase/firestore';
@@ -21,6 +22,7 @@ export function ExpenseManagerPage() {
     const theme = useTheme();
     const [openAdd, setOpenAdd] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+    const [compareMode, setCompareMode] = useState(false);
 
     // Date filtering state
     const currentDate = new Date();
@@ -113,14 +115,25 @@ export function ExpenseManagerPage() {
                         Track your operational costs, subscriptions, and overhead.
                     </Typography>
                 </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<Plus />}
-                    onClick={() => setOpenAdd(true)}
-                    sx={{ px: 3, py: 1.5, borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
-                >
-                    Add Expense
-                </Button>
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <Button
+                        variant={compareMode ? 'contained' : 'outlined'}
+                        startIcon={<GitCompare />}
+                        onClick={() => setCompareMode(v => !v)}
+                        color={compareMode ? 'secondary' : 'inherit'}
+                        sx={{ px: 2.5, py: 1.5, borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Compare Months
+                    </Button>
+                    <Button
+                        variant="contained"
+                        startIcon={<Plus />}
+                        onClick={() => setOpenAdd(true)}
+                        sx={{ px: 3, py: 1.5, borderRadius: 3, textTransform: 'none', fontWeight: 600 }}
+                    >
+                        Add Expense
+                    </Button>
+                </Box>
             </Box>
 
             {/* Date Filter Controls */}
@@ -176,43 +189,56 @@ export function ExpenseManagerPage() {
                 </Typography>
             </Box>
 
-            {/* Stats & Analytics */}
-            <ExpenseStats
-                expenses={expenses}
-                allExpenses={allExpenses.filter(e => e.accountId === selectedAccount)}
-                selectedYear={selectedYear}
-            />
-
-            {/* Subscriptions */}
-            <SubscriptionList />
-
-            {/* Recent Transactions List */}
-            <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
-                {showAllTime ? 'All Transactions' : `Transactions - ${months[selectedMonth]} ${selectedYear}`}
-            </Typography>
-
-            {expenses.length === 0 ? (
-                <Box sx={{ py: 8, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 4 }}>
-                    <Typography color="text.secondary">
-                        {showAllTime ? 'No expenses found for this account.' : `No expenses found for ${months[selectedMonth]} ${selectedYear}.`}
-                    </Typography>
-                    <Button sx={{ mt: 2 }} onClick={() => setOpenAdd(true)}>
-                        Add your first expense
-                    </Button>
-                </Box>
+            {compareMode ? (
+                /* ---- Compare Mode ---- */
+                <MonthComparisonView
+                    allExpenses={allExpenses.filter(e => e.accountId === selectedAccount)}
+                    availableYears={availableYears}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                />
             ) : (
-                <Grid container spacing={2}>
-                    {expenses.map((expense) => (
-                        <Grid size={{ xs: 12 }} key={expense.id}>
-                            <ExpenseCard
-                                expense={expense}
-                                category={DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === expense.category)}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
-                            />
+                /* ---- Normal Mode ---- */
+                <>
+                    {/* Stats & Analytics */}
+                    <ExpenseStats
+                        expenses={expenses}
+                        allExpenses={allExpenses.filter(e => e.accountId === selectedAccount)}
+                        selectedYear={selectedYear}
+                    />
+
+                    {/* Subscriptions */}
+                    <SubscriptionList />
+
+                    {/* Recent Transactions List */}
+                    <Typography variant="h6" fontWeight={700} sx={{ mb: 2 }}>
+                        {showAllTime ? 'All Transactions' : `Transactions - ${months[selectedMonth]} ${selectedYear}`}
+                    </Typography>
+
+                    {expenses.length === 0 ? (
+                        <Box sx={{ py: 8, textAlign: 'center', bgcolor: 'action.hover', borderRadius: 4 }}>
+                            <Typography color="text.secondary">
+                                {showAllTime ? 'No expenses found for this account.' : `No expenses found for ${months[selectedMonth]} ${selectedYear}.`}
+                            </Typography>
+                            <Button sx={{ mt: 2 }} onClick={() => setOpenAdd(true)}>
+                                Add your first expense
+                            </Button>
+                        </Box>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {expenses.map((expense) => (
+                                <Grid size={{ xs: 12 }} key={expense.id}>
+                                    <ExpenseCard
+                                        expense={expense}
+                                        category={DEFAULT_EXPENSE_CATEGORIES.find(c => c.id === expense.category)}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                </Grid>
+                            ))}
                         </Grid>
-                    ))}
-                </Grid>
+                    )}
+                </>
             )}
 
             <AddExpenseDialog
