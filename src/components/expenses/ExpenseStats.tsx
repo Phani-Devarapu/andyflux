@@ -3,7 +3,7 @@ import { Box, Paper, Typography, Grid, useTheme } from '@mui/material';
 import { Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { DollarSign, TrendingUp, Calendar as CalendarIcon } from 'lucide-react';
-import type { Expense } from '../../types/expenseTypes';
+import type { Expense, RecurringExpenseRule } from '../../types/expenseTypes';
 import { DEFAULT_EXPENSE_CATEGORIES } from '../../types/expenseTypes';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
@@ -12,9 +12,10 @@ interface ExpenseStatsProps {
     expenses: Expense[];  // Filtered expenses for the selected month
     allExpenses: Expense[];  // All expenses (for YTD calculation)
     selectedYear: number;  // Year selected by user
+    recurringRules?: RecurringExpenseRule[];  // Active rules for burn rate
 }
 
-export function ExpenseStats({ expenses, allExpenses, selectedYear }: ExpenseStatsProps) {
+export function ExpenseStats({ expenses, allExpenses, selectedYear, recurringRules = [] }: ExpenseStatsProps) {
     const theme = useTheme();
 
     // 1. Calculate Stats
@@ -22,16 +23,13 @@ export function ExpenseStats({ expenses, allExpenses, selectedYear }: ExpenseSta
         // Total This Month: sum of filtered expenses
         const totalThisMonth = expenses.reduce((sum, e) => sum + e.amount, 0);
 
-        // Recurring "Burn Rate" (Projected Monthly Fixed Cost)
-        // Treat isRecurring expenses with no frequency (or 'monthly') as monthly;
-        // pro-rate yearly ones across 12 months.
-        const monthlyRecurring = expenses
-            .filter(e => e.isRecurring && e.frequency !== 'yearly')
-            .reduce((sum, e) => sum + e.amount, 0);
-        const yearlyRecurring = expenses
-            .filter(e => e.isRecurring && e.frequency === 'yearly')
-            .reduce((sum, e) => sum + e.amount / 12, 0);
-        const monthlyBurn = monthlyRecurring + yearlyRecurring;
+        // Monthly Burn Rate — derived from active recurring RULES (source of truth),
+        // not from transactions, so it reflects standing fixed costs regardless
+        // of whether the current month's auto-generated expenses have been created yet.
+        const activeRules = recurringRules.filter(r => r.isActive !== false);
+        const monthlyBurn = activeRules.reduce((sum, r) => {
+            return sum + (r.frequency === 'yearly' ? r.amount / 12 : r.amount);
+        }, 0);
 
         // YTD: Calculate from ALL expenses for the SELECTED year (not current year)
         const totalYTD = allExpenses

@@ -23,6 +23,7 @@ import { db } from '../utils/firebase';
 import { startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { RecurringExpenseService } from '../services/recurringExpenseService';
 import { generateInsights, detectAnomalies, loadBudgets } from '../utils/expenseUIUtils';
+import { useFirestoreRecurringRules } from '../hooks/useFirestoreRecurringRules';
 
 export function ExpenseManagerPage() {
     const { user } = useAuth();
@@ -41,6 +42,7 @@ export function ExpenseManagerPage() {
 
     // Fetch expenses from Firestore hook
     const { expenses: allExpenses, loading } = useFirestoreExpenses();
+    const { rules: recurringRules } = useFirestoreRecurringRules();
 
     // Filter expenses by account and date
     const expenses = useMemo(() => {
@@ -252,6 +254,7 @@ export function ExpenseManagerPage() {
                         expenses={expenses}
                         allExpenses={accountExpenses}
                         selectedYear={selectedYear}
+                        recurringRules={recurringRules}
                     />
 
                     {/* Category Budgets + Top Merchants — side by side on md+ */}
